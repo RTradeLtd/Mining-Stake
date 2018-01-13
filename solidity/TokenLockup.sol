@@ -15,8 +15,19 @@ contract TokenLockup is Administration {
 
     using SafeMath for uint256;
 
+    /**CONSTANTS*/
     uint256 public constant DEFAULTLOCKUPTIME = 4 weeks;
     uint256 public constant MINIMUMLOCKUPAMOUNT = 1;
+
+
+    // hot wallet used to collect sign up fees,
+    address public rtcHotWallet;
+    // 0.1 ETH
+    uint256 public signUpFee = 100000000000000000;
+    // floating value, how many RTC for a single hash rate a second, starts out at 0.2RTC/hs
+    uint256 public rtcPerHashSecond = 200000000000000000;
+    uint256 public stakerCount;
+
 
     RTCoinInterface private rtI;
 
@@ -25,17 +36,20 @@ contract TokenLockup is Administration {
         uint256 coinsLocked;
         uint256 releaseDate;
         bool    enabled;
+        bool    feeExempt;
     }
 
     mapping (address => HolderStruct) public holders;
     mapping (address => bool)   public registeredHolders;
     mapping (address => uint256) public holderBalances; // for lockupTokens
     mapping (address => uint256) public holderRewards;
+    mapping (address => uint256) public memberNumber;
 
     event RTCoinInterfaceSet(address indexed _rtcContractAddress, bool indexed _rtcInteraceSet);
     event MiningRewardDeposited(address indexed _miningPayoutRewardee, uint256 _amountInRtcPaidOut, bool indexed _miningRewardPayout);
     event LockupWithdrawn(address indexed _withdrawee, uint256 _amountWithdrawn, bool indexed _lockupWithdrawn);
     event LockupDeposited(address indexed _lockee, uint256 _amountLocked, uint256 indexed _lockupDuration, bool indexed _tokensLockedUp);
+
 
     modifier registeredUser(address _user) {
         require(_user != address(0x0) && registeredHolders[_user] == true);
@@ -67,7 +81,37 @@ contract TokenLockup is Administration {
         _;
     }
 
+    function () public payable {
+        assert(msg.value == 0);
+    }
 
+    function lockupTokens(
+            uint256 _amountToLockup,
+            uint256 _lockupDurationInWeeks
+    )
+        public
+        payable
+        nonRegisteredUser(msg.sender)
+        returns (bool)
+    {
+        require(_amountToLockup >= MINIMUMLOCKUPAMOUNT);
+        require(_lockupDurationInWeeks >= 4);
+        uint256 lockupDuration = _lockupDurationInWeeks * 1 weeks;
+        // check if they are fee exempt
+        if (stakerCount > 100) {
+            require(msg.value == signUpFee);
+            rtcHotWallet.transfer(msg.value);
+        }
+        holders[msg.sender].holderAddress = msg.sender;
+        holders[msg.sender].coinsLocked = _amountToLockup;
+        holders[msg.sender].releaseDate = lockupDuration;
+        holders[msg.sender].enabled = true;
+        holderBalances[msg.sender] = holderBalances[msg.sender].add(_amountToLockup);
+        registeredHolders[msg.sender] = true;
+        require(rtI.transferFrom(msg.sender, this, _amountToLockup));
+        LockupDeposited(msg.sender, _amountToLockup, lockupDuration, true);
+        return true;
+    }
 
     function setRtI(
         address _rtcAddress
@@ -132,27 +176,8 @@ contract TokenLockup is Administration {
     }
 
 
-    function lockupTokens(
-            uint256 _amountToLockup,
-            uint256 _lockupDurationInWeeks
-    )
-        public
-        nonRegisteredUser(msg.sender)
-        returns (bool)
-    {
-        require(_amountToLockup >= MINIMUMLOCKUPAMOUNT);
-        require(_lockupDurationInWeeks >= 4);
-        uint256 lockupDuration = _lockupDurationInWeeks * 1 weeks;
-        holders[msg.sender].holderAddress = msg.sender;
-        holders[msg.sender].coinsLocked = _amountToLockup;
-        holders[msg.sender].releaseDate = lockupDuration;
-        holders[msg.sender].enabled = true;
-        holderBalances[msg.sender] = holderBalances[msg.sender].add(_amountToLockup);
-        registeredHolders[msg.sender] = true;
-        require(rtI.transferFrom(msg.sender, this, _amountToLockup));
-        LockupDeposited(msg.sender, _amountToLockup, lockupDuration, true);
-        return true;
-    }
+    /**INTERNALS*/
+
 
     /**GETTERS*/
     function getContractRtcBalance()
