@@ -9,9 +9,10 @@ pragma solidity 0.4.19;
 
 import "./Math/SafeMath.sol";
 import "./Modules/Administration.sol";
+import "./Modules/Oraclize.sol";
 import "./Interfaces/RTCoinInterface.sol";
 
-contract TokenLockup is Administration {
+contract TokenLockup is Administration, usingOraclize {
 
     using SafeMath for uint256;
 
@@ -20,6 +21,7 @@ contract TokenLockup is Administration {
     uint256 public constant MINIMUMLOCKUPAMOUNT = 1;
 
 
+    uint256 public ethUSD;
     // hot wallet used to collect sign up fees,
     address public rtcHotWallet;
     // 0.1 ETH
@@ -44,6 +46,7 @@ contract TokenLockup is Administration {
     mapping (address => uint256) public holderBalances; // for lockupTokens
     mapping (address => uint256) public holderRewards;
     mapping (address => uint256) public memberNumber;
+    mapping (bytes32 => bool)   public validOraclizeIds;
 
     event RTCoinInterfaceSet(address indexed _rtcContractAddress, bool indexed _rtcInteraceSet);
     event MiningRewardDeposited(address indexed _miningPayoutRewardee, uint256 _amountInRtcPaidOut, bool indexed _miningRewardPayout);
@@ -84,6 +87,15 @@ contract TokenLockup is Administration {
     function () public payable {
         assert(msg.value == 0);
     }
+
+
+    function __callback(bytes32 id, string result) {
+        require(validORaclizeIds[id]);
+        require(msg.sender ==oraclize_cbAddress());
+        
+    }
+
+
 
     function lockupTokens(
             uint256 _amountToLockup,
