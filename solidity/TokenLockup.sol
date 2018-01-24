@@ -18,7 +18,7 @@ contract TokenLockup is Administration, usingOraclize {
 
     /**CONSTANTS*/
     uint256 public constant DEFAULTLOCKUPTIME = 4 weeks;
-    uint256 public constant MINIMUMLOCKUPAMOUNT = 1;
+    uint256 public constant MINIMUMLOCKUPAMOUNT = 100;
 
 
     uint256 public ethUSD;
@@ -26,9 +26,11 @@ contract TokenLockup is Administration, usingOraclize {
     address public rtcHotWallet;
     // 0.1 ETH
     uint256 public signUpFee = 100000000000000000;
-    // floating value, how many RTC for a single hash rate a second, starts out at 0.2RTC/hs
-    uint256 public rtcPerHashSecond = 200000000000000000;
+    // floating value, how many RTC for a single hash rate a second, starts out at 4.5RTC = 1 hash/sec
+    uint256 public rtcPerHashSecond = 4500000000000000000;
     uint256 public stakerCount;
+
+    bool    private locked;
 
 
     RTCoinInterface private rtI;
@@ -37,6 +39,7 @@ contract TokenLockup is Administration, usingOraclize {
         address holderAddress;
         uint256 coinsLocked;
         uint256 releaseDate;
+        uint256 hashPerSec;
         bool    enabled;
         bool    feeExempt;
     }
@@ -46,15 +49,16 @@ contract TokenLockup is Administration, usingOraclize {
     mapping (address => uint256) public holderBalances; // for lockupTokens
     mapping (address => uint256) public holderRewards;
     mapping (address => uint256) public memberNumber;
-    mapping (bytes32 => bool)   public validOraclizeIds;
+    mapping (bytes32 => bool)   private validOraclizeIds; // keep to private, helps reduce gas costs
 
     event RTCoinInterfaceSet(address indexed _rtcContractAddress, bool indexed _rtcInteraceSet);
     event MiningRewardDeposited(address indexed _miningPayoutRewardee, uint256 _amountInRtcPaidOut, bool indexed _miningRewardPayout);
     event LockupWithdrawn(address indexed _withdrawee, uint256 _amountWithdrawn, bool indexed _lockupWithdrawn);
-    event LockupDeposited(address indexed _lockee, uint256 _amountLocked, uint256 indexed _lockupDuration, bool indexed _tokensLockedUp);
+    event LockupDeposited(address indexed _lockee, uint256 _amountLocked, uint256 indexed _lockupDuration, uint256 indexed _hashesPerSecond, bool _tokensLockedUp);
 
     event NewOraclizeQuery(string result);
     event EthUsdPriceUpdated(uint256 price);
+    event SignUpFeeUpdated(uint256 fee);
 
     modifier registeredUser(address _user) {
         require(_user != address(0x0) && registeredHolders[_user] == true);
@@ -86,6 +90,11 @@ contract TokenLockup is Administration, usingOraclize {
         _;
     }
 
+    modifier notLocked() {
+        require(!locked);
+        _;
+    }
+
     function TokenLockup() payable {
         bytes32 id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
         validOraclizeIds[id] = true;
@@ -95,17 +104,24 @@ contract TokenLockup is Administration, usingOraclize {
 
 
     function __callback(bytes32 myid, string result) {
+        locked = true;
         require(msg.sender == oraclize_cbAddress());
         require(validOraclizeIds[myid]);
-        newEthUsdPrice(result);
         ethUSD = parseInt(result);
+        uint256 oneEth = 1 ether;
+        signUpFee = oneEth.div(ethUSD);
+        signUpFee = signUpFee.div(1 ether);
+        signUpFee = signUpFee.mul(10);
+        EthUsdPriceUpdated(ethUSD);
+        SignUpFeeUpdated(signUpFee);
         delete validOraclizeIds[myid];
+        locked = false;
         update();
     }
 
     function update() payable {
         require(this.balance >=oraclize_getPrice("URL"));
-        newOraclizeQuery("Oraclize query was sent, standing by for the answer..");
+        NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
         bytes32 _id = oraclize_query(600, "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
         validOraclizeIds[_id] = true;
     }
@@ -117,6 +133,7 @@ contract TokenLockup is Administration, usingOraclize {
         public
         payable
         nonRegisteredUser(msg.sender)
+        notLocked
         returns (bool)
     {
         require(_amountToLockup >= MINIMUMLOCKUPAMOUNT);
@@ -127,14 +144,16 @@ contract TokenLockup is Administration, usingOraclize {
             require(msg.value == signUpFee);
             rtcHotWallet.transfer(msg.value);
         }
+        uint256 _hashSecond = _amountToLockup.div(rtcPerHashSecond);
         holders[msg.sender].holderAddress = msg.sender;
         holders[msg.sender].coinsLocked = _amountToLockup;
         holders[msg.sender].releaseDate = lockupDuration;
+        holders[msg.sender].hashPerSec = _hashSecond;
         holders[msg.sender].enabled = true;
         holderBalances[msg.sender] = holderBalances[msg.sender].add(_amountToLockup);
         registeredHolders[msg.sender] = true;
         require(rtI.transferFrom(msg.sender, this, _amountToLockup));
-        LockupDeposited(msg.sender, _amountToLockup, lockupDuration, true);
+        LockupDeposited(msg.sender, _amountToLockup, lockupDuration, _hashSecond, true);
         return true;
     }
 
@@ -185,19 +204,6 @@ contract TokenLockup is Administration, usingOraclize {
         require(rtI.transfer(msg.sender, amountToWithdraw));
         LockupWithdrawn(msg.sender, amountToWithdraw, true);
         return true;
-    }
-
-    // only used for testing, remove for production use
-    function testRetrieveTokens()
-        public
-        returns (bool)
-    {
-        uint256 amountToWithdraw = holderBalances[msg.sender];
-        require(amountToWithdraw == holders[msg.sender].coinsLocked);
-        holders[msg.sender].coinsLocked = 0;
-        holderBalances[msg.sender] = 0;
-        holders[msg.sender].enabled = false;
-        require(rtI.transfer(msg.sender, amountToWithdraw));
     }
 
 
