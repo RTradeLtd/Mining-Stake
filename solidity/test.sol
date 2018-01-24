@@ -13,13 +13,16 @@ contract test is usingOraclize {
 	event newOraclizeQuery(string result);
 	event newEthUsdPrice(string result);
 
-	function test() payable {}
+	function test() payable {
+		update();
+	}
 
 	function () payable {}
 
 	function __callback(bytes32 myid, string result) {
         require(msg.sender == oraclize_cbAddress());
         require(validOraclizeIds[myid]);
+        newEthUsdPrice(result);
         ethUSD = parseInt(result);
         delete validOraclizeIds[myid];
         //updateEthUsd();
@@ -29,7 +32,7 @@ contract test is usingOraclize {
     function update() payable {
         require(this.balance >=oraclize_getPrice("URL"));
         newOraclizeQuery("Oraclize query was sent, standing by for the answer..");
-        bytes32 _id = oraclize_query("60", "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
+        bytes32 _id = oraclize_query(60, "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
         validOraclizeIds[_id] = true;
     }
 }
