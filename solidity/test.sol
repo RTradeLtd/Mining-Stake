@@ -11,27 +11,25 @@ contract test is usingOraclize {
 	mapping (bytes32 => bool) public validOraclizeIds;
 
 	event newOraclizeQuery(string result);
+	event newEthUsdPrice(string result);
 
-	function test() {}
+	function test() payable {}
 
 	function () payable {}
 
-	function __callback(bytes32 id, string result) {
-        require(validOraclizeIds[id]);
+	function __callback(bytes32 myid, string result) {
         require(msg.sender == oraclize_cbAddress());
+        require(validOraclizeIds[myid]);
         ethUSD = parseInt(result);
-        delete validOraclizeIds[id];
+        delete validOraclizeIds[myid];
         //updateEthUsd();
     }
 
     // WIP, not totally, set to update price every 600 seconds
-    function updateEthUsd()
-        payable
-        returns (bool)
-    {
+    function update() payable {
         require(this.balance >=oraclize_getPrice("URL"));
         newOraclizeQuery("Oraclize query was sent, standing by for the answer..");
-        bytes32 id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd", 30000000000);
-        validOraclizeIds[id] = true;
+        bytes32 _id = oraclize_query("60", "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
+        validOraclizeIds[_id] = true;
     }
 }

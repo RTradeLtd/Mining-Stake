@@ -53,6 +53,8 @@ contract TokenLockup is Administration, usingOraclize {
     event LockupWithdrawn(address indexed _withdrawee, uint256 _amountWithdrawn, bool indexed _lockupWithdrawn);
     event LockupDeposited(address indexed _lockee, uint256 _amountLocked, uint256 indexed _lockupDuration, bool indexed _tokensLockedUp);
 
+    event NewOraclizeQuery(string result);
+    event EthUsdPriceUpdated(uint256 price);
 
     modifier registeredUser(address _user) {
         require(_user != address(0x0) && registeredHolders[_user] == true);
@@ -88,29 +90,25 @@ contract TokenLockup is Administration, usingOraclize {
         assert(msg.value == 0);
     }
 
-    function TokenLockup() {
-        bytes32 id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
-        validOraclizeIds[id] = true;
-    }
+    function TokenLockup() payable {}
+    function () payable {}
 
-    function __callback(bytes32 id, string result) {
-        require(validOraclizeIds[id]);
-        require(msg.sender ==oraclize_cbAddress());
+
+    function __callback(bytes32 myid, string result) {
+        require(msg.sender == oraclize_cbAddress());
+        require(validOraclizeIds[myid]);
         ethUSD = parseInt(result);
-        delete validOraclizeIds[id];
-        updateEthUSD();
+        EthUsdPriceUpdated(ethUSD);
+        delete validOraclizeIds[myid];
+        //updateEthUsd();
     }
 
-    // WIP, not totally, set to update price every 600 seconds
-    function updateEthUsd()
-        payable
-        returns (bool)
-    {
-        require(msg.value >= oracaclize_getPrice("URL"));
-        require(this.balance >=oraclize_getPrice("URL"))
-        newOraclizeQuery("Oraclize query was sent, standing by for the answer..");
-        bytes32 id = oraclize_query("600", "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
-        validOraclizeIds[id] = true;
+    // WIP
+    function update() payable {
+        require(this.balance >= oraclize_getPrice("URL"));
+        NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
+        bytes32 _id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
+        validOraclizeIds[_id] = true;
     }
 
     function lockupTokens(
