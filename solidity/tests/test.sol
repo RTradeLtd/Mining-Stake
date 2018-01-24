@@ -25,7 +25,7 @@ contract test is usingOraclize {
         newEthUsdPrice(result);
         ethUSD = parseInt(result);
         delete validOraclizeIds[myid];
-        //updateEthUsd();
+        update();
     }
 
     // WIP, not totally, set to update price every 600 seconds

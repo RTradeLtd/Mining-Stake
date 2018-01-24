@@ -86,28 +86,27 @@ contract TokenLockup is Administration, usingOraclize {
         _;
     }
 
-    function () public payable {
-        assert(msg.value == 0);
+    function TokenLockup() payable {
+        bytes32 id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
+        validOraclizeIds[id] = true;
     }
 
-    function TokenLockup() payable {}
     function () payable {}
 
 
     function __callback(bytes32 myid, string result) {
         require(msg.sender == oraclize_cbAddress());
         require(validOraclizeIds[myid]);
+        newEthUsdPrice(result);
         ethUSD = parseInt(result);
-        EthUsdPriceUpdated(ethUSD);
         delete validOraclizeIds[myid];
-        //updateEthUsd();
+        update();
     }
 
-    // WIP
     function update() payable {
-        require(this.balance >= oraclize_getPrice("URL"));
-        NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
-        bytes32 _id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
+        require(this.balance >=oraclize_getPrice("URL"));
+        newOraclizeQuery("Oraclize query was sent, standing by for the answer..");
+        bytes32 _id = oraclize_query(600, "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
         validOraclizeIds[_id] = true;
     }
 
