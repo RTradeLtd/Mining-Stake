@@ -4,6 +4,7 @@ This repository contains files related to the staking of RTC (RTCoin).
 
 When you lock in your RTC, for the ENTIRE duration of your lockup you will be granted the exact hash rate that you were granted at the time of lockup. For example, at the time of your lockup you were granted 1000hash/sec and you locked up your RTC for 18 weeks, you will be granted 1000hash/sec for the entire 18 weeks.
 
+
 # What does staking RTC do?
 
 By staking RTC, you gain access to the profits made at some of RTrades mining farms.
@@ -24,9 +25,3 @@ With the RTC starting evaluation of $0.125/RTC, the total cost for 1 hash/sec is
 This figure is an initial estimate for testing purposes. The actual values may change before the staking contract is pushed to production
 
 
-# To Be Added
-
-
-
-
-> Prevent people from locking up tokens when there is a price change occuring ( needs testing )

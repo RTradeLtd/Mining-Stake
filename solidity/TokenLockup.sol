@@ -110,7 +110,7 @@ contract TokenLockup is Administration, usingOraclize {
         ethUSD = parseInt(result);
         uint256 oneEth = 1 ether;
         signUpFee = oneEth.div(ethUSD);
-        signUpFee = signUpFee.div(1 ether);
+        //signUpFee = signUpFee.div(1 ether); removing for testing
         signUpFee = signUpFee.mul(10);
         EthUsdPriceUpdated(ethUSD);
         SignUpFeeUpdated(signUpFee);
@@ -178,6 +178,7 @@ contract TokenLockup is Administration, usingOraclize {
         registeredUser(_holder)
         isEnabledUser(_holder)
         validBalance(_holder)
+        onlyAdmin
         returns (bool)
     {
         require(_amountToDeposit > 0);
@@ -207,6 +208,19 @@ contract TokenLockup is Administration, usingOraclize {
     }
 
 
+    // safety hatch to prevent eth from being trapped in the contract leaving enough for a single oraclize call
+    function withdrawEth(
+        address _recipient
+    )
+        public
+        onlyOwner
+        returns (bool)
+    {
+        uint256 fee = oraclize_getPrice("URL").mul(2);
+        uint256 amount = this.balance.sub(fee);
+        _recipient.transfer(amount);
+        return true;
+    }
     /**INTERNALS*/
 
 
