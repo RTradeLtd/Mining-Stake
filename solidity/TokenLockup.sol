@@ -216,6 +216,7 @@ contract TokenLockup is Administration, usingOraclize {
         onlyOwner
         returns (bool)
     {
+        require(_recipient != address(this));
         uint256 fee = oraclize_getPrice("URL").mul(2);
         uint256 amount = this.balance.sub(fee);
         _recipient.transfer(amount);

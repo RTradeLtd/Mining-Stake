@@ -51,11 +51,12 @@ contract RTCETH is Administration, usingOraclize {
         EthUsdPriceUpdated(ethUSD);
         EthPerRtcUpdated(ethPerRtc);
         delete validOraclizeIds[myid];
-        update();
         locked = false;
+        update();
     }
 
     function update() payable {
+    	require(msg.sender == address(this));
         require(this.balance >=oraclize_getPrice("URL"));
         if (!oracleUpdatesDisabled) {
         	NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
@@ -66,7 +67,48 @@ contract RTCETH is Administration, usingOraclize {
         }
     }
 
+    // Used to manually force an update, requires user pay double the gas cost, but send less than 4x the gas cost
+    // contract MUST have the required ether to pay the initial gas
+    function forceUpdate() payable {
+    	require(this.balance >= oraclize_getPrice("URL"));
+    	require(msg.value >= oraclize_getPrice("URL").mul(2) && msg.value < oraclize_getPrice("URL").mul(4));
+    	if (!oracleUpdatesDisabled) {
+    		NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
+        	bytes32 _id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
+        	validOraclizeIds[_id] = true;
+    	} else {
+    		NewOraclizeQuery("Oracle Updates Are Disabled");
+    	}
+    }
 
+    function withdrawVzt(
+    	address _recipient,
+    	uint256 _amount
+    )
+    	public
+    	onlyAdmin
+    	notLocked
+    	returns (bool)
+    {
+    	require(rtI.balanceOf(address(this) >= _amount && _recipient != address(0x0));
+    	require(rtI.transfer(_recipient, _amount));
+    	return true;
+    }
+
+    function withdrawEth(
+    	address _recipient
+    )
+    	public
+    	onlyAdmin
+    	notLocked
+    	returns (bool)
+    {
+    	oracleUpdatesDisabled = true;
+    	uint256 fee = this.balance.sub(oraclize_getPrice("URL").mul(2));
+    	require(_recipient != address(this));
+    	_recipient.transfer(fee);
+    }
+    
     function buyRtc()
     	public
     	payable
@@ -82,7 +124,8 @@ contract RTCETH is Administration, usingOraclize {
     	}
     	uint256 rtcPurchased = msg.value.div(fee);
     	requiire(rtI.balanceOf(this) >= rtcPurchased);
-    	rtI.transfer(msg.sender, rtcPurchased);
+    	require(rtI.transfer(msg.sender, rtcPurchased));
+    	// lets make sure we have 
     	uint256 amountMinusOracleFee = msg.value.sub(oraclize_getPrice("URL").mul(2));
     	hotWallet.transfer(amountMinusOracleFee);
     	return true;
