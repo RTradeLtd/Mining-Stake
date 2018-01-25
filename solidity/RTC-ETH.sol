@@ -19,7 +19,7 @@ contract RTCETH is Administration, usingOraclize {
 	RTCoinInterface private rtI;
 
 	mapping (address => bool) private bonus; 
-
+	mapping (bytes32 => bool) private validOraclizeIds;
 
 	event NewOraclizeQuery(string result);
 	event EthUsdPriceUpdated(uint256 price);
@@ -48,7 +48,7 @@ contract RTCETH is Administration, usingOraclize {
         ethUSD = parseInt(result);
         uint256 oneEth = 1 ether;
         uint256 oneUsdOfEth = oneEth.div(ethUSD);
-        ethPerRtc = oneUsdOfEth.div(8) // $1 / $0.125 = 8
+        ethPerRtc = oneUsdOfEth.div(8); // $1 / $0.125 = 8
         EthUsdPriceUpdated(ethUSD);
         EthPerRtcUpdated(ethPerRtc);
         delete validOraclizeIds[myid];
@@ -91,7 +91,7 @@ contract RTCETH is Administration, usingOraclize {
     	notLocked
     	returns (bool)
     {
-    	require(rtI.balanceOf(address(this) >= _amount && _recipient != address(0x0));
+    	require(rtI.balanceOf(address(this)) >= _amount && _recipient != address(0x0));
     	require(rtI.transfer(_recipient, _amount));
     	return true;
     }
@@ -124,9 +124,9 @@ contract RTCETH is Administration, usingOraclize {
     		fee = ethPerRtc;
     	}
     	uint256 rtcPurchased = msg.value.div(fee);
-    	requiire(rtI.balanceOf(this) >= rtcPurchased);
+    	require(rtI.balanceOf(this) >= rtcPurchased);
     	require(rtI.transfer(msg.sender, rtcPurchased));
-    	// lets make sure we have 
+    	// lets make sure we have  enough for a future oracle call
     	uint256 amountMinusOracleFee = msg.value.sub(oraclize_getPrice("URL").mul(2));
     	hotWallet.transfer(amountMinusOracleFee);
     	return true;
