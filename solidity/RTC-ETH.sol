@@ -32,9 +32,10 @@ contract RTCETH is Administration, usingOraclize {
 
 
 	function RTCETH() payable {
-		rtI = RTCoinInterface(address(0x0));
-		bytes32 _id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd")
-		NewOraclizeQuery("Oraclize Query Was Sent. Standing By For Answer")
+		// rinkeby address
+		rtI = RTCoinInterface(0x89B44F01e1a363E46E175301603b141a00b3C884);
+		bytes32 _id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
+		NewOraclizeQuery("Oraclize Query Was Sent. Standing By For Answer");
 		validOraclizeIds[_id] = true;
 	}
 
@@ -108,7 +109,7 @@ contract RTCETH is Administration, usingOraclize {
     	require(_recipient != address(this));
     	_recipient.transfer(fee);
     }
-    
+
     function buyRtc()
     	public
     	payable
