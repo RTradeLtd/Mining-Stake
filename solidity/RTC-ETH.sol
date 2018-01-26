@@ -4,13 +4,14 @@ import "./Modules/Administration.sol";
 import "./Modules/Oraclize.sol";
 import "./Math/SafeMath.sol";
 import "./Interfaces/RTCoinInterface.sol";
-
+import "./Interfaces/ERC20Interface.sol";
 
 contract RTCETH is Administration, usingOraclize {
 
 	using SafeMath for uint256;
 
 	address public hotWallet;
+	address public rtcAddress = 0x89B44F01e1a363E46E175301603b141a00b3C884;
 	uint256 public ethUSD;
 	uint256 public ethPerRtc;
 	bool	public oracleUpdatesDisabled;
@@ -123,7 +124,7 @@ contract RTCETH is Administration, usingOraclize {
     }
 
 
-    function withdrawVzt(
+    function withdrawRtc(
     	address _recipient,
     	uint256 _amount
     )
@@ -138,6 +139,27 @@ contract RTCETH is Administration, usingOraclize {
     	return true;
     }
 
+
+    /**
+		@dev Lets us withdraw any token that is accidentally sent to the contract, as long as its not RTC
+    */
+    function withdrawErcToken(
+    	address _tokenAddress,
+    	uint256 _recipient
+    )
+    	public
+    	onlyAdmin
+    	returns (bool)
+    {
+    	require(_tokenAddress != rtcAddress);
+    	ERC20Interface e = ERC20Interface(_tokenAddress);
+    	require(e.transfer(_recipient, e.balanceOf(address(this))));
+    	return true;
+    }
+
+    /**
+		@dev Safety hatch to prevent eth from being withdrawn from the contract
+    */
     function withdrawEth(
     	address _recipient
     )
@@ -153,13 +175,17 @@ contract RTCETH is Administration, usingOraclize {
     	_recipient.transfer(fee);
     }
 
+
+    /**
+		@dev Used to buy RTC for ethereum
+    */
     function buyRtc()
     	public
     	payable
-    	notLocked
+    	notLocked // make sure there isn't a pending price update
     	returns (bool)
     {
-    	require(hotWallet != address(0x0));
+    	require(hotWallet != address(0x0)); // make sure hotwallet is set so we dont send eth into the ether
     	require(msg.value > 0);
     	uint256 fee;
     	if (bonus[msg.sender]) { // sender is eligible for bonus, so fee reduction
@@ -170,7 +196,7 @@ contract RTCETH is Administration, usingOraclize {
     	uint256 rtcPurchased = (msg.value.div(fee)).mul(1 ether);
     	require(rtI.balanceOf(this) >= rtcPurchased);
     	require(rtI.transfer(msg.sender, rtcPurchased));
-    	// lets make sure we have  enough for a future oracle call
+    	// lets make sure we have  enough for a future oracle call and deduct that from the total amount before forwarding to the hot wallet
     	uint256 amountMinusOracleFee = msg.value.sub(oraclize_getPrice("URL").mul(2));
     	RtcPurchased(msg.sender, rtcPurchased);
     	hotWallet.transfer(amountMinusOracleFee);
