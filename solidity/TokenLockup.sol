@@ -54,7 +54,7 @@ contract TokenLockup is Administration, usingOraclize {
     event RTCoinInterfaceSet(address indexed _rtcContractAddress, bool indexed _rtcInteraceSet);
     event MiningRewardDeposited(address indexed _miningPayoutRewardee, uint256 _amountInRtcPaidOut, bool indexed _miningRewardPayout);
     event LockupWithdrawn(address indexed _withdrawee, uint256 _amountWithdrawn, bool indexed _lockupWithdrawn);
-    event LockupDeposited(address indexed _lockee, uint256 _amountLocked, uint256 indexed _lockupDuration, uint256 indexed _hashesPerSecond, bool _tokensLockedUp);
+    event LockupDeposited(address indexed _lockee, uint256 _amountLocked, uint256 indexed _lockupDuration, uint256 indexed _hashesPerSecond, bytes32 _lockupIdentifier, bool _tokensLockedUp);
 
     event NewOraclizeQuery(string result);
     event EthUsdPriceUpdated(uint256 price);
@@ -95,14 +95,23 @@ contract TokenLockup is Administration, usingOraclize {
         _;
     }
 
+    /**
+        CONSTRUCTOR
+    */
     function TokenLockup() payable {
         bytes32 id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
         validOraclizeIds[id] = true;
     }
 
+    /**
+        @dev Fallback, allows depositing of ether into the contract
+    */
     function () payable {}
 
 
+    /**
+        @dev Callback function, used by Oraclize to update the eth-usd conversion rate
+    */
     function __callback(bytes32 myid, string result) {
         locked = true;
         require(msg.sender == oraclize_cbAddress());
@@ -119,31 +128,41 @@ contract TokenLockup is Administration, usingOraclize {
         update();
     }
 
-    function update() payable {
+    /**
+        @dev Used to trigger an ETH-USD state update
+        @notice Marked private to prevent anyone from forcing an udpate and wasting our ethereum
+    */
+    function update() private {
         require(this.balance >=oraclize_getPrice("URL"));
         NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
         bytes32 _id = oraclize_query(600, "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
         validOraclizeIds[_id] = true;
     }
 
-    function lockupTokens(
+    /**
+        @dev Used to lockup your RTC and start staking.
+    */
+    function lockupRtcTokens(
             uint256 _amountToLockup,
             uint256 _lockupDurationInWeeks
     )
         public
-        payable
-        nonRegisteredUser(msg.sender)
-        notLocked
+        payable // need to mark payable in case staker count is over 100
+        nonRegisteredUser(msg.sender) // ensure that msg.sender is not registered
+        notLocked // ensure that the contract isn't locked due to a pending price update
         returns (bool)
     {
+        // ensure they are locking up a valid amount of tokens`
         require(_amountToLockup >= MINIMUMLOCKUPAMOUNT);
-        require(_lockupDurationInWeeks >= 4);
+        // ensure they are locking up for a valid duration 
+        require(_lockupDurationInWeeks >= 4 && _lockupDurationInWeeks <= 52);
         uint256 lockupDuration = _lockupDurationInWeeks * 1 weeks;
         // check if they are fee exempt
         if (stakerCount > 100) {
             require(msg.value == signUpFee);
             rtcHotWallet.transfer(msg.value);
         }
+        // check to see how much hashes a second they are granted
         uint256 _hashSecond = _amountToLockup.div(rtcPerHashSecond);
         holders[msg.sender].holderAddress = msg.sender;
         holders[msg.sender].coinsLocked = _amountToLockup;
@@ -152,8 +171,9 @@ contract TokenLockup is Administration, usingOraclize {
         holders[msg.sender].enabled = true;
         holderBalances[msg.sender] = holderBalances[msg.sender].add(_amountToLockup);
         registeredHolders[msg.sender] = true;
+        bytes32 _lockupId = keccak256(msg.sender, _lockupDurationInWeeks, _amountToLockup);
         require(rtI.transferFrom(msg.sender, this, _amountToLockup));
-        LockupDeposited(msg.sender, _amountToLockup, lockupDuration, _hashSecond, true);
+        LockupDeposited(msg.sender, _amountToLockup, lockupDuration, _hashSecond, _lockupId, true);
         return true;
     }
 

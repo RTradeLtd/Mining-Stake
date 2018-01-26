@@ -28,7 +28,7 @@ def lockupTokens(contract):
     rtcToStake = int(input('how much RTC do you wish to stake: '))
     timeToStake = int(input('for how many weeks do you wish to stakeL: '))
     assert rtcToStake > 0 and timeToStake > 4
-    contract.transact({'from': '123'}).lockupTokens(rtcToStake, timeToStake)
+    contract.transact({'from': '123'}).lockupRtcTokens(rtcToStake, timeToStake)
 
 w3 = Web3(IPCProvider('ipcpath'))
 
