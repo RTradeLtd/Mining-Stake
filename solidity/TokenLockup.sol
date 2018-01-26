@@ -40,6 +40,7 @@ contract TokenLockup is Administration, usingOraclize {
         uint256 coinsLocked;
         uint256 releaseDate;
         uint256 hashPerSec;
+        bytes32 lockupIdentifier;
         bool    enabled;
         bool    feeExempt;
     }
@@ -259,10 +260,10 @@ contract TokenLockup is Administration, usingOraclize {
     )
         public
         view
-        returns (address, uint256, uint256, bool)
+        returns (address, uint256, uint256, bytes32, bool)
     {
         HolderStruct memory s = holders[_holderAddress];
-        return (s.holderAddress, s.coinsLocked, s.releaseDate, s.enabled);
+        return (s.holderAddress, s.coinsLocked, s.releaseDate, s.lockupIdentifier, s.enabled);
     }
 
 }
