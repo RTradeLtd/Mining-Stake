@@ -18,15 +18,17 @@ contract TokenLockup is Administration, usingOraclize {
 
     /**CONSTANTS*/
     uint256 public constant DEFAULTLOCKUPTIME = 4 weeks;
-    uint256 public constant MINIMUMLOCKUPAMOUNT = 100;
+    uint256 public constant MINIMUMLOCKUPAMOUNT = 100000000000000000000; // 100 RTC ($12.50 at $0.125/rtc)
+    string  public constant VERSION = "0.0.1alpha";
 
-
+    // keeps track of the latest eth-usd ratio, with no decimals
     uint256 public ethUSD;
     // hot wallet used to collect sign up fees,
     address public rtcHotWallet;
-    // 0.1 ETH
-    uint256 public signUpFee = 100000000000000000;
-    // floating value, how many RTC for a single hash rate a second, starts out at 4.5RTC = 1 hash/sec
+    // will always be equivalent to $10 USD of ethereum +/- a few cents
+    uint256 public signUpFee;
+    // how many RTC for a single hash rate a second, starts out at 4.5RTC = 1 hash/sec
+    // at starting evaluation, it costs $0.5625USD to get 1 hash a second.
     uint256 public rtcPerHashSecond = 4500000000000000000;
     uint256 public stakerCount;
 
@@ -120,7 +122,6 @@ contract TokenLockup is Administration, usingOraclize {
         ethUSD = parseInt(result);
         uint256 oneEth = 1 ether;
         signUpFee = oneEth.div(ethUSD);
-        //signUpFee = signUpFee.div(1 ether); removing for testing
         signUpFee = signUpFee.mul(10);
         EthUsdPriceUpdated(ethUSD);
         SignUpFeeUpdated(signUpFee);
@@ -163,21 +164,25 @@ contract TokenLockup is Administration, usingOraclize {
             require(msg.value == signUpFee);
             rtcHotWallet.transfer(msg.value);
         }
-        // check to see how much hashes a second they are granted
+        // check to see how much hashes a second they are granted, and update the struct
         uint256 _hashSecond = _amountToLockup.div(rtcPerHashSecond);
+        bytes32 _lockupId = keccak256(msg.sender, _lockupDurationInWeeks, _amountToLockup);
         holders[msg.sender].holderAddress = msg.sender;
         holders[msg.sender].coinsLocked = _amountToLockup;
         holders[msg.sender].releaseDate = lockupDuration;
-        holders[msg.sender].hashPerSec = _hashSecond;
+        holders[msg.sender].hashPerSec = _hashSecond;        holders[msg.sender].lockupIdentifier = _lockupId;
         holders[msg.sender].enabled = true;
         holderBalances[msg.sender] = holderBalances[msg.sender].add(_amountToLockup);
         registeredHolders[msg.sender] = true;
-        bytes32 _lockupId = keccak256(msg.sender, _lockupDurationInWeeks, _amountToLockup);
+        stakerCount = stakerCount.add(1);
         require(rtI.transferFrom(msg.sender, this, _amountToLockup));
         LockupDeposited(msg.sender, _amountToLockup, lockupDuration, _hashSecond, _lockupId, true);
         return true;
     }
 
+    /**
+        @dev Used to set the RTCoin interface
+    */
     function setRtI(
         address _rtcAddress
     )
@@ -190,7 +195,9 @@ contract TokenLockup is Administration, usingOraclize {
         return true;
     }
 
-
+    /**
+        @dev Used to deposit a mining reward to a backer.
+    */
     function depositReward(
         address _holder,
         uint256 _amountToDeposit
@@ -209,6 +216,9 @@ contract TokenLockup is Administration, usingOraclize {
         return true;
     }
 
+    /**
+        @dev Used by a backer to retrieve their locked up stake
+    */
     function retrieveTokens()
         public
         registeredUser(msg.sender)
@@ -255,6 +265,9 @@ contract TokenLockup is Administration, usingOraclize {
         return rtI.balanceOf(this);
     }
 
+    /**
+        @dev Returns the holder struct
+    */
     function getHolderStruct(
         address _holderAddress
     )
