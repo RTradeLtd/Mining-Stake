@@ -156,13 +156,8 @@ contract TokenLockup is Administration, usingOraclize {
         // ensure they are locking up a valid amount of tokens`
         require(_amountToLockup >= MINIMUMLOCKUPAMOUNT);
         // ensure they are locking up for a valid duration 
-        require(_lockupDurationInWeeks >= 4 && _lockupDurationInWeeks <= 52);
+        require(_lockupDurationInWeeks == 2);
         uint256 lockupDuration = _lockupDurationInWeeks * 1 weeks;
-        // check if they are fee exempt
-        if (stakerCount > 100) {
-            require(msg.value == signUpFee);
-            rtcHotWallet.transfer(msg.value);
-        }
         // check to see how much hashes a second they are granted, and update the struct
         uint256 _hashSecond = _amountToLockup.div(rtcPerHashSecond);
         bytes32 _lockupId = keccak256(msg.sender, _lockupDurationInWeeks, _amountToLockup);
