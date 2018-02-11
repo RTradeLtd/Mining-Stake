@@ -27,9 +27,9 @@ contract TokenLockup is Administration, usingOraclize {
     address public rtcHotWallet;
     // will always be equivalent to $10 USD of ethereum +/- a few cents
     uint256 public signUpFee;
-    // how many RTC for a single hash rate a second, starts out at 4.5RTC = 1 hash/sec
-    // at starting evaluation, it costs $0.5625USD to get 1 hash a second.
-    uint256 public rtcPerHashSecond = 4500000000000000000;
+    // how many RTC for a single kilo hash rate a second, starts out at 1rtc = 6.25KH/s
+    // at starting evaluation, it costs $0.1255USD to get 1 hash a second.
+    uint256 public kiloHashSecondPerRtc = 6250000000000000000;
     uint256 public stakerCount;
     bool    private locked;
 
@@ -56,7 +56,7 @@ contract TokenLockup is Administration, usingOraclize {
     event RTCoinInterfaceSet(address indexed _rtcContractAddress, bool indexed _rtcInteraceSet);
     event MiningRewardDeposited(address indexed _miningPayoutRewardee, uint256 _amountInRtcPaidOut, bool indexed _miningRewardPayout);
     event LockupWithdrawn(address indexed _withdrawee, uint256 _amountWithdrawn, bool indexed _lockupWithdrawn);
-    event LockupDeposited(address indexed _lockee, uint256 _amountLocked, uint256 indexed _lockupDuration, uint256 indexed _hashesPerSecond, bytes32 _lockupIdentifier, bool _tokensLockedUp);
+    event LockupDeposited(address indexed _lockee, uint256 _amountLocked, uint256 indexed _lockupDuration, uint256 indexed _kiloHashesPerSecond, bytes32 _lockupIdentifier, bool _tokensLockedUp);
 
     event NewOraclizeQuery(string result);
     event EthUsdPriceUpdated(uint256 price);
@@ -164,12 +164,14 @@ contract TokenLockup is Administration, usingOraclize {
             rtcHotWallet.transfer(msg.value);
         }
         // check to see how much hashes a second they are granted, and update the struct
-        uint256 _hashSecond = _amountToLockup.div(rtcPerHashSecond);
+        uint256 _hashSecond = _amountToLockup.mul(kiloHashSecondPerRtc);
+        _hashSecond = _hashSecond.div(1 ether);
         bytes32 _lockupId = keccak256(msg.sender, _lockupDurationInWeeks, _amountToLockup);
         holders[msg.sender].holderAddress = msg.sender;
         holders[msg.sender].coinsLocked = _amountToLockup;
         holders[msg.sender].releaseDate = lockupDuration;
-        holders[msg.sender].hashPerSec = _hashSecond;        holders[msg.sender].lockupIdentifier = _lockupId;
+        holders[msg.sender].hashPerSec = _hashSecond;
+        holders[msg.sender].lockupIdentifier = _lockupId;
         holders[msg.sender].enabled = true;
         holderBalances[msg.sender] = holderBalances[msg.sender].add(_amountToLockup);
         registeredHolders[msg.sender] = true;

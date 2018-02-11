@@ -20,20 +20,38 @@ pragma solidity 0.4.19;
 import "./Math/SafeMath.sol";
 import "./Modules/Administration.sol";
 import "./Modules/Oraclize.sol";
-
+// 43200 (12 hours in seconds)
 contract HashRateGatherer is Administration, usingOraclize {
 
-	string public currentConfirmedBalanced;
+	struct BalanceStruct {
+		uint256 date;
+		string confirmedBalance;
+	}
+
+	BalanceStruct[]	public balances;
+
+	mapping (bytes32 => bool) private validOraclizeIds;
+
 	event NewOraclizeQuery(string _query);
+
 	function () payable {}
 
 	function HashRateGatherer() {
 		NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
-		oraclize_query("URL","BG1EnQQhc5lTlj+CR6MWecyxOQ0/a0gtZ4SttLTnSkBUoLihLR9zdj5vo9bqzHYhdzMxqyzuMuSXX/i9Mzl5WjOvJtN/i4QmSgK9Wxq9t9NC/7MCWqoTULSnGR8HTAH32YisJ4mVF8SKwt2YaGIAgeMuHYUGEc80aNqIwZbUcu17evdbKK6L7ODd0m1C/WMsWmMrHK/CaOfoy9Ldn8DDJPnyAgcGVgILF11q9Yh+J5DtupqAsbfVpnHI76oD7sP2RjpvuBDjzqei+PHLs+BjWFB35nQhohw4b0GasFZDAv1gk1F5/EaHfzuI5a+Z3Fy2nmOhpB2Pku6Y1olx3jViYcwbq1z2f5QKOQ==");
+		bytes32 id = oraclize_query("URL","BG1EnQQhc5lTlj+CR6MWecyxOQ0/a0gtZ4SttLTnSkBUoLihLR9zdj5vo9bqzHYhdzMxqyzuMuSXX/i9Mzl5WjOvJtN/i4QmSgK9Wxq9t9NC/7MCWqoTULSnGR8HTAH32YisJ4mVF8SKwt2YaGIAgeMuHYUGEc80aNqIwZbUcu17evdbKK6L7ODd0m1C/WMsWmMrHK/CaOfoy9Ldn8DDJPnyAgcGVgILF11q9Yh+J5DtupqAsbfVpnHI76oD7sP2RjpvuBDjzqei+PHLs+BjWFB35nQhohw4b0GasFZDAv1gk1F5/EaHfzuI5a+Z3Fy2nmOhpB2Pku6Y1olx3jViYcwbq1z2f5QKOQ==");
+		validOraclizeIds[id] = true;
 	}
 
     function __callback(bytes32 myid, string result) {
-        currentConfirmedBalanced = result;
+    	require(msg.sender == oraclize_cbAddress());
+    	require(validOraclizeIds[myid]);
+    	delete validOraclizeIds[myId];
+    	balances.push(BalanceStruct(now, result));
+        update();
     }
 
+    function update() private {
+    	bytes32 id = oraclize_query(43200,"URL","BG1EnQQhc5lTlj+CR6MWecyxOQ0/a0gtZ4SttLTnSkBUoLihLR9zdj5vo9bqzHYhdzMxqyzuMuSXX/i9Mzl5WjOvJtN/i4QmSgK9Wxq9t9NC/7MCWqoTULSnGR8HTAH32YisJ4mVF8SKwt2YaGIAgeMuHYUGEc80aNqIwZbUcu17evdbKK6L7ODd0m1C/WMsWmMrHK/CaOfoy9Ldn8DDJPnyAgcGVgILF11q9Yh+J5DtupqAsbfVpnHI76oD7sP2RjpvuBDjzqei+PHLs+BjWFB35nQhohw4b0GasFZDAv1gk1F5/EaHfzuI5a+Z3Fy2nmOhpB2Pku6Y1olx3jViYcwbq1z2f5QKOQ==");
+    	validOraclizeIds[id] = true;
+    }
 }
