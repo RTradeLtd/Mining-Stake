@@ -57,7 +57,7 @@ contract TokenLockup is Administration, usingOraclize {
     mapping (address => RewardStruct) private rewards;
     mapping (address => uint256)      private ethBalances;
 
-    event StakeDeposited(address _depositer, uint256 _amount, uint256 _weeksStaked, uint256 _khSec);
+    event StakeDeposited(address _depositer, uint256 _amount, uint256 _weeksStaked, uint256 _khSec, bytes32 _id);
     event RewardDeposited(address _staker, uint256 _rtcStaked, uint256 _ethMined);
     event EthWithdrawn(address _withdrawer, uint256 _amount);
     event NewOraclizeQuery(string result);
@@ -79,6 +79,11 @@ contract TokenLockup is Administration, usingOraclize {
         _;
     }
 
+    modifier isLocked() {
+        require(locked);
+        _;
+    }
+
     /**
         CONSTRUCTOR
     */
@@ -97,6 +102,7 @@ contract TokenLockup is Administration, usingOraclize {
         uint256 _durationInWeeksToStake)
         public
         notRegisteredStaker(msg.sender)
+        notLocked
         returns (bool)
     {
         bytes32 id = keccak256(msg.sender, _rtcToStake, _durationInWeeksToStake, now);
@@ -109,7 +115,7 @@ contract TokenLockup is Administration, usingOraclize {
         stakers[msg.sender].releaseDate = (now + (_durationInWeeksToStake * 1 weeks));
         stakers[msg.sender].id = id;
         stakers[msg.sender].enabled = true;
-        StakeDeposited(msg.sender, _rtcToStake, _durationInWeeksToStake, khSec);
+        StakeDeposited(msg.sender, _rtcToStake, _durationInWeeksToStake, khSec, id);
         require(rtI.transferFrom(msg.sender, address(this), _rtcToStake));
         return true;
     }
@@ -121,6 +127,7 @@ contract TokenLockup is Administration, usingOraclize {
         public
         onlyAdmin
         registeredStaker(_staker)
+        notLocked
         payable
         returns (bool)
     {
@@ -137,11 +144,12 @@ contract TokenLockup is Administration, usingOraclize {
     function withdrawEth()
         public
         registeredStaker(msg.sender)
+        notLocked
         returns (bool)
     {
-        uint256 eth = ethBalances[_staker];
+        uint256 eth = ethBalances[msg.sender];
         // reset, prevent re-entrancy
-        ethBalances[_staker] = 0;
+        ethBalances[msg.sender] = 0;
         EthWithdrawn(msg.sender, eth);
         msg.sender.transfer(eth);
         return true;
