@@ -18,7 +18,7 @@ contract TokenLockup is Administration, usingOraclize {
 
     /**CONSTANTS*/
     uint256 public constant DEFAULTLOCKUPTIME = 4 weeks;
-    uint256 public constant MINIMUMLOCKUPAMOUNT = 100000000000000000000; // 100 RTC ($12.50 at $0.125/rtc)
+    uint256 public constant MINSTAKE = 100000000000000000000; // 100 RTC ($12.50 at $0.125/rtc)
     string  public constant VERSION = "0.0.1beta";
 
     // keeps track of the latest eth-usd ratio, with no decimals
@@ -46,16 +46,16 @@ contract TokenLockup is Administration, usingOraclize {
         bool    enabled;
     }
 
+    // keeps track of total rewards
     struct RewardStruct {
-        address addr;
         uint256 eth;
         uint256 rtc;
     }
 
-    mapping (bytes32 => bool)   private validOraclizeIds; // keep to private, helps reduce gas costs
+    mapping (bytes32 => bool)         private validOraclizeIds; // keep to private, helps reduce gas costs
     mapping (address => StakerStruct) private stakers;
     mapping (address => RewardStruct) private rewards;
-    mapping (address => uint256)      private ethBalances;
+    mapping (address => uint256)      private ethBalances; // keeps track of 'remaining' eth rewards
 
     event StakeDeposited(address _depositer, uint256 _amount, uint256 _weeksStaked, uint256 _khSec, bytes32 _id);
     event RewardDeposited(address _staker, uint256 _rtcStaked, uint256 _ethMined);
@@ -97,6 +97,16 @@ contract TokenLockup is Administration, usingOraclize {
     */
     function () payable {}
 
+    function setRtI(
+        address _rtcAddress)
+        public
+        onlyAdmin
+        returns (bool)
+    {
+        rtI = RTCoinInterface(_rtcAddress);
+        return true;
+    }
+
     function depositStake(
         uint256 _rtcToStake,
         uint256 _durationInWeeksToStake)
@@ -105,6 +115,7 @@ contract TokenLockup is Administration, usingOraclize {
         notLocked
         returns (bool)
     {
+        require(_rtcToStake > MINSTAKE && _durationInWeeksToStake >= 4);
         bytes32 id = keccak256(msg.sender, _rtcToStake, _durationInWeeksToStake, now);
         uint256 khSec = _rtcToStake.mul(kiloHashSecondPerRtc);
         khSec = khSec.div(1 ether);
