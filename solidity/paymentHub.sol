@@ -27,7 +27,7 @@ contract PaymentRouter is Administration {
 			if (_recipients[i] != address(0)) {
 				require(this.balance >= _ethToSend);
 				require(eI.transfer(_recipients[i], _tokensToSend));
-				_recipients[i].transfer(_ethToSend);
+				require(_recipients[i].send(_ethToSend));
 			}
 		}
 	}
