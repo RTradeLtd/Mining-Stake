@@ -1,4 +1,4 @@
-pragma solidity 0.4.20;
+pragma solidity 0.4.21;
 
 import "./Interfaces/ERC20Interface.sol";
 import "./Modules/Administration.sol";
