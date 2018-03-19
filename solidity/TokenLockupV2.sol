@@ -1,4 +1,4 @@
-pragma solidity 0.4.19;
+pragma solidity 0.4.21;
 
 
 /**
@@ -46,20 +46,19 @@ contract TokenLockup is Administration, usingOraclize {
         bool    enabled;
     }
 
-    // keeps track of total rewards
     struct RewardStruct {
-        uint256 eth;
-        uint256 rtc;
+        uint256 ethRewarded;
+        uint256 rtcRewarded;
     }
 
     mapping (bytes32 => bool)         private validOraclizeIds; // keep to private, helps reduce gas costs
-    mapping (address => StakerStruct) private stakers;
-    mapping (address => RewardStruct) private rewards;
-    mapping (address => uint256)      private ethBalances; // keeps track of 'remaining' eth rewards
+    mapping (address => StakerStruct) public stakers;
+    mapping (address => RewardStruct) public rewards;
 
     event StakeDeposited(address _depositer, uint256 _amount, uint256 _weeksStaked, uint256 _khSec, bytes32 _id);
-    event RewardDeposited(address _staker, uint256 _rtcStaked, uint256 _ethMined);
     event EthWithdrawn(address _withdrawer, uint256 _amount);
+    event RtcReward(address _staker, uint256 _amount);
+    event EthReward(address _staker, uint256 _amount);
     event NewOraclizeQuery(string result);
     event EthUsdPriceUpdated(uint256 price);
     event SignUpFeeUpdated(uint256 fee);
@@ -131,38 +130,34 @@ contract TokenLockup is Administration, usingOraclize {
         return true;
     }
 
-    function depositReward(
-        address _staker,
-        uint256 _ethMined,
-        uint256 _rtcStaked)
+    function routeRtcRewards(
+        address[] _stakers,
+        uint256 _rtcPerStaker)
         public
         onlyAdmin
-        registeredStaker(_staker)
-        notLocked
-        payable
         returns (bool)
     {
-        require(msg.value == _ethMined &&  _ethMined > 0 && _rtcStaked > 0);
-        rewards[_staker].eth =  rewards[_staker].eth.add(_ethMined);
-        rewards[_staker].rtc = rewards[_staker].rtc.add(_rtcStaked);
-        ethBalances[_staker] = ethBalances[_staker].add(_ethMined);
-        RewardDeposited(_staker, _rtcStaked, _ethMined);
-        // we can transfer tokens right award since it doesn't trigger code execution
-        require(rtI.transferFrom(msg.sender, _staker, _rtcStaked));
+        for (uint256 i = 0; i < _stakers.length; i++) {
+            rewards[_stakers[i]].rtcRewarded = rewards[_stakers[i]].rtcRewarded.add(_rtcPerStaker);
+            emit RtcReward(_stakers[i], _rtcPerStaker);
+            require(rtI.transferFrom(msg.sender, _stakers[i], _rtcPerStaker));
+        }
         return true;
     }
 
-    function withdrawEth()
+    function routeEthReward(
+        address[] _stakers,
+        uint256 _ethPerPerson)  
         public
-        registeredStaker(msg.sender)
-        notLocked
+        onlyAdmin
+        payable
         returns (bool)
     {
-        uint256 eth = ethBalances[msg.sender];
-        // reset, prevent re-entrancy
-        ethBalances[msg.sender] = 0;
-        EthWithdrawn(msg.sender, eth);
-        msg.sender.transfer(eth);
+        for (uint256 i = 0; i < _stakers.length; i++) {
+            rewards[_stakers[i]].ethRewarded = rewards[_stakers[i]].ethRewarded.add(_ethPerPerson);
+            emit EthReward(_stakers[i], _ethPerPerson);
+            require(_stakers[i].send(_ethPerPerson));
+        }
         return true;
     }
 
@@ -182,6 +177,11 @@ contract TokenLockup is Administration, usingOraclize {
         delete validOraclizeIds[myid];
         locked = false;
         update();
+    }
+
+    function forceUpdate() public onlyAdmin returns (bool) {
+        update();
+        return true;
     }
 
     /**
