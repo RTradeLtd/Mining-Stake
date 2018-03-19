@@ -125,7 +125,7 @@ contract TokenLockup is Administration, usingOraclize {
         stakers[msg.sender].releaseDate = (now + (_durationInWeeksToStake * 1 weeks));
         stakers[msg.sender].id = id;
         stakers[msg.sender].enabled = true;
-        StakeDeposited(msg.sender, _rtcToStake, _durationInWeeksToStake, khSec, id);
+        emit StakeDeposited(msg.sender, _rtcToStake, _durationInWeeksToStake, khSec, id);
         require(rtI.transferFrom(msg.sender, address(this), _rtcToStake));
         return true;
     }
@@ -161,6 +161,25 @@ contract TokenLockup is Administration, usingOraclize {
         return true;
     }
 
+    function getRewardStruct(
+        address _staker)
+        public
+        view
+        returns (uint256, uint256)
+    {
+        return (rewards[_staker].ethRewarded, rewards[_staker].rtcRewarded);
+    }
+
+    function getStakerStruct(
+        address _staker)
+        public
+        view
+        returns (address, uint256, uint256, uint256, uint256, bytes32, bool)
+    {
+        return (stakers[_staker].addr, stakers[_staker].rtcStaked, stakers[_staker].khSec, stakers[_staker].depositDate, stakers[_staker].releaseDate, stakers[_staker].id, stakers[_staker].enabled);
+    }
+
+
     /**
         @dev Callback function, used by Oraclize to update the eth-usd conversion rate
     */
@@ -172,8 +191,8 @@ contract TokenLockup is Administration, usingOraclize {
         uint256 oneEth = 1 ether;
         signUpFee = oneEth.div(ethUSD);
         signUpFee = signUpFee.mul(10);
-        EthUsdPriceUpdated(ethUSD);
-        SignUpFeeUpdated(signUpFee);
+        emit EthUsdPriceUpdated(ethUSD);
+        emit SignUpFeeUpdated(signUpFee);
         delete validOraclizeIds[myid];
         locked = false;
         update();
@@ -189,7 +208,7 @@ contract TokenLockup is Administration, usingOraclize {
         @notice Marked private to prevent anyone from forcing an udpate and wasting our ethereum
     */
     function update() private {
-        require(this.balance >=oraclize_getPrice("URL"));
+        require(address(this).balance >=oraclize_getPrice("URL"));
         NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
         bytes32 _id = oraclize_query(600, "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
         validOraclizeIds[_id] = true;

@@ -6,20 +6,20 @@ RTCoin Interface
 
 interface RTCoinInterface {
     
-    function freezeTransfers() public returns (bool);
+    function freezeTransfers() external returns (bool);
 
-    function thawTransfers() public returns (bool);
+    function thawTransfers() external returns (bool);
 
-    function transfer(address _recipient, uint256 _amount) public returns (bool transferred);
+    function transfer(address _recipient, uint256 _amount) external returns (bool transferred);
 
-    function transferFrom(address _owner, address _recipient, uint256 _amount) public returns (bool transferredFrom);
+    function transferFrom(address _owner, address _recipient, uint256 _amount) external returns (bool transferredFrom);
 
-    function approve(address _spender, uint256 _amount) public returns (bool approved);
+    function approve(address _spender, uint256 _amount) external returns (bool approved);
     /**GETTERS */
 
-    function totalSupply() public view returns (uint256);
+    function totalSupply() external view returns (uint256);
 
-    function balanceOf(address _holder) public view returns (uint256);
+    function balanceOf(address _holder) external view returns (uint256);
 
-    function allowance(address _owner, address _spender) public view returns (uint256);
+    function allowance(address _owner, address _spender) external view returns (uint256);
 }
