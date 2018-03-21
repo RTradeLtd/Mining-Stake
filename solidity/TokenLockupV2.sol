@@ -31,10 +31,10 @@ contract TokenLockup is Administration, usingOraclize {
     // at starting evaluation, it costs $0.1255USD to get 1 hash a second.
     uint256 public kiloHashSecondPerRtc = 6250000000000000000;
     uint256 public stakerCount;
-    bool    private locked;
+    bool    public locked;
 
 
-    RTCoinInterface private rtI;
+    RTCoinInterface public rtI = RTCoinInterface(0x0994f9595d28429584bfb5fcbfea75b9c9ea2c24);
 
     struct StakerStruct {
         address addr;
@@ -106,6 +106,16 @@ contract TokenLockup is Administration, usingOraclize {
         return true;
     }
 
+    function setRtHotWallet(
+        address _rtHotWallet)
+        public
+        onlyAdmin
+        returns (bool)
+    {
+        rtcHotWallet = _rtHotWallet;
+        return true;
+    }
+
     function depositStake(
         uint256 _rtcToStake,
         uint256 _durationInWeeksToStake)
@@ -126,7 +136,7 @@ contract TokenLockup is Administration, usingOraclize {
         stakers[msg.sender].id = id;
         stakers[msg.sender].enabled = true;
         emit StakeDeposited(msg.sender, _rtcToStake, _durationInWeeksToStake, khSec, id);
-        require(rtI.transferFrom(msg.sender, address(this), _rtcToStake));
+        require(rtI.transferFrom(msg.sender, rtcHotWallet, _rtcToStake));
         return true;
     }
 
