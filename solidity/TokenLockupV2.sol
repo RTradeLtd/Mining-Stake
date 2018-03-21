@@ -124,7 +124,7 @@ contract TokenLockup is Administration, usingOraclize {
         notLocked
         returns (bool)
     {
-        require(_rtcToStake > MINSTAKE && _durationInWeeksToStake >= 4);
+        require(_rtcToStake >= MINSTAKE && _durationInWeeksToStake >= 4);
         bytes32 id = keccak256(msg.sender, _rtcToStake, _durationInWeeksToStake, now);
         uint256 khSec = _rtcToStake.mul(kiloHashSecondPerRtc);
         khSec = khSec.div(1 ether);
