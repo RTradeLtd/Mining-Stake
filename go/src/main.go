@@ -4,6 +4,7 @@ import (
 	"log"
 	"fmt"
 	"strings"
+	"math/big"
 	//ipfs_api "github.com/ipfs/go-ipfs-api"
 
 
@@ -13,7 +14,7 @@ import (
     "github.com/ethereum/go-ethereum/ethclient"
   //"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-
+	"github.com/sendgrid/sendgrid-go"
 	"./token_lockup"
 )
 
@@ -33,12 +34,32 @@ func eventParser(contract *TokenLockup.TokenLockup) {
 			log.Fatal("error parsing event ", err)
 		case evLog := <-ch:
 			fmt.Println("successfully retrieved log")
-			depositer, amount, duration, khsec, id := evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id
+			depositer, amountStaked, duration, khsec, id := evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id
 			fmt.Printf(
 				"%v, %v, %v, %v, %v", depositer, amount, duration, khsec, id)
 		}
 	}
 }
+
+func sendEmail(_depositer common.Address, _amountStaked big.Int, _duration big.Int, _khSec big.Int, _id big.Int) {
+	content = fmt.Sprintf()
+	from := mail.NewEmail("stake-sendgrid-api", "sgapi@rtradetechnologies.com")
+    subject := "New Stake Deposit Detected In Staking Contract"
+    to := mail.NewEmail("Mining Stake", "stake@rtradetechnologies.com")
+    plainTextContent := "and easy to do anywhere, even with Go"
+    htmlContent := "<strong>and easy to do anywhere, even with Go</strong>"
+    message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
+    client := sendgrid.NewSendClient(os.Getenv("SENDGRID_API_KEY"))
+    response, err := client.Send(message)
+    if err != nil {
+    log.Println(err)
+    } else {
+    fmt.Println(response.StatusCode)
+    fmt.Println(response.Body)
+    fmt.Println(response.Headers)
+    }
+}
+
 
 func main() {
 
