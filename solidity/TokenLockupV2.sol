@@ -39,10 +39,11 @@ contract TokenLockup is Administration, usingOraclize {
     struct StakerStruct {
         address addr;
         uint256 rtcStaked;
+        uint256 deposit;
         uint256 khSec;
         uint256 depositDate;
         uint256 releaseDate;
-        bytes32 id;
+        uint256 id;
         bool    enabled;
     }
 
@@ -52,10 +53,12 @@ contract TokenLockup is Administration, usingOraclize {
     }
 
     mapping (bytes32 => bool)         private validOraclizeIds; // keep to private, helps reduce gas costs
-    mapping (address => StakerStruct) public stakers;
+    mapping (address => StakerStruct[]) public stakers;
     mapping (address => RewardStruct) public rewards;
+    mapping (address => uint256) public numStakes;
 
-    event StakeDeposited(address _depositer, uint256 _amount, uint256 _weeksStaked, uint256 _khSec, bytes32 _id);
+    event StakeDeposited(address _depositer, uint256 _amount, uint256 _weeksStaked, uint256 _khSec, uint256 _id);
+    event DepositWithdrawn(address _staker, uint256 _amount, uint256 _stakeId);
     event EthWithdrawn(address _withdrawer, uint256 _amount);
     event RtcReward(address _staker, uint256 _amount);
     event EthReward(address _staker, uint256 _amount);
@@ -63,13 +66,18 @@ contract TokenLockup is Administration, usingOraclize {
     event EthUsdPriceUpdated(uint256 price);
     event SignUpFeeUpdated(uint256 fee);
 
-    modifier registeredStaker(address _addr) {
-        require(stakers[_addr].enabled);
+    modifier registeredStaker(address _staker, uint256 _id) {
+        require(stakers[_staker][_id].enabled);
         _;
     }
 
-    modifier notRegisteredStaker(address _addr) {
-        require(!stakers[_addr].enabled);
+    modifier pastReleaseDate(address _staker, uint256 _id) {
+        require(now > stakers[_staker][_id].releaseDate);
+        _;
+    }
+
+    modifier stakeEnabled(address _staker, uint256 _id) {
+        require(stakers[_staker][_id].enabled);
         _;
     }
 
@@ -120,23 +128,41 @@ contract TokenLockup is Administration, usingOraclize {
         uint256 _rtcToStake,
         uint256 _durationInWeeksToStake)
         public
-        notRegisteredStaker(msg.sender)
         notLocked
         returns (bool)
     {
         require(_rtcToStake >= MINSTAKE && _durationInWeeksToStake >= 4);
-        bytes32 id = keccak256(msg.sender, _rtcToStake, _durationInWeeksToStake, now);
+        uint256 id = numStakes[msg.sender];
+        numStakes[msg.sender] = numStakes[msg.sender].add(1);
         uint256 khSec = _rtcToStake.mul(kiloHashSecondPerRtc);
         khSec = khSec.div(1 ether);
-        stakers[msg.sender].addr = msg.sender;
-        stakers[msg.sender].rtcStaked = _rtcToStake;
-        stakers[msg.sender].khSec = khSec;
-        stakers[msg.sender].depositDate = now;
-        stakers[msg.sender].releaseDate = (now + (_durationInWeeksToStake * 1 weeks));
-        stakers[msg.sender].id = id;
-        stakers[msg.sender].enabled = true;
+        stakers[msg.sender].push(StakerStruct(
+            msg.sender,
+            _rtcToStake,
+            _rtcToStake,
+            khSec,
+            now,
+            (now + (_durationInWeeksToStake * 1 weeks)),
+            id,
+            true));
         emit StakeDeposited(msg.sender, _rtcToStake, _durationInWeeksToStake, khSec, id);
         require(rtI.transferFrom(msg.sender, rtcHotWallet, _rtcToStake));
+        return true;
+    }
+
+    function withdrawStake(
+        uint256 _stakeId)
+        public
+        pastReleaseDate(msg.sender, _stakeId)
+        stakeEnabled(msg.sender, _stakeId)
+        returns (bool)
+    {
+        assert(stakers[msg.sender][_stakeId].deposit > 0);
+        uint256 deposit = stakers[msg.sender][_stakeId].deposit;
+        stakers[msg.sender][_stakeId].deposit = 0;
+        stakers[msg.sender][_stakeId].enabled = false;
+        emit DepositWithdrawn(msg.sender, deposit, _stakeId);
+        require(rtI.transfer(msg.sender, deposit));
         return true;
     }
 
@@ -181,12 +207,19 @@ contract TokenLockup is Administration, usingOraclize {
     }
 
     function getStakerStruct(
-        address _staker)
+        address _staker,
+        uint256 _id)
         public
         view
-        returns (address, uint256, uint256, uint256, uint256, bytes32, bool)
+        returns (uint256, uint256, uint256, uint256, uint256, bool)
     {
-        return (stakers[_staker].addr, stakers[_staker].rtcStaked, stakers[_staker].khSec, stakers[_staker].depositDate, stakers[_staker].releaseDate, stakers[_staker].id, stakers[_staker].enabled);
+        return (
+            stakers[_staker][_id].rtcStaked,
+            stakers[_staker][_id].khSec,
+            stakers[_staker][_id].depositDate,
+            stakers[_staker][_id].releaseDate,
+            stakers[_staker][_id].id,
+            stakers[_staker][_id].enabled);
     }
 
 
@@ -209,7 +242,10 @@ contract TokenLockup is Administration, usingOraclize {
     }
 
     function forceUpdate() public onlyAdmin returns (bool) {
-        update();
+        require(address(this).balance >= oraclize_getPrice("URL"));
+        NewOraclizeQuery("Oraclize query was sent, standing by for answer");
+        bytes32 _id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
+        validOraclizeIds[_id] = true;
         return true;
     }
 
