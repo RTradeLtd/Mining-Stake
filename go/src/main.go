@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"strings"
 	"math/big"
+	"os"
 	//ipfs_api "github.com/ipfs/go-ipfs-api"
 
 
 	//ethereum "github.com/ethereum/go-ethereum"
-	//"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common"
 	//"github.com/ethereum/go-ethereum/core/types"
     "github.com/ethereum/go-ethereum/ethclient"
   //"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/sendgrid/sendgrid-go"
+	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"./token_lockup"
 )
 
@@ -34,20 +36,48 @@ func eventParser(contract *TokenLockup.TokenLockup) {
 			log.Fatal("error parsing event ", err)
 		case evLog := <-ch:
 			fmt.Println("successfully retrieved log")
-			depositer, amountStaked, duration, khsec, id := evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id
 			fmt.Printf(
-				"%v, %v, %v, %v, %v", depositer, amount, duration, khsec, id)
+				"%v, %v, %v, %v, %v", evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id)
+			sendEmail(evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id)
 		}
 	}
 }
 
-func sendEmail(_depositer common.Address, _amountStaked big.Int, _duration big.Int, _khSec big.Int, _id big.Int) {
-	content = fmt.Sprintf()
+func sendEmail(_depositer common.Address, _amountStaked *big.Int, _duration *big.Int, _khSec *big.Int, _id *big.Int) {
+	/*
+	address := "test@example.com"
+	name := "Example User"
+	from := mail.NewEmail(name, address)
+	subject := "Hello World from the SendGrid Go Library"
+	address = "test@example.com"
+	name = "Example User"
+	to := mail.NewEmail(name, address)
+	content := mail.NewContent("text/plain", "some text here")
+	m := mail.NewV3MailInit(from, subject, to, content)
+	address = "test2@example.com"
+	name = "Example User"
+	email := mail.NewEmail(name, address)
+	m.Personalizations[0].AddTos(email)
+	return mail.GetRequestBody(m)
+}
+	*/
+	content := fmt.Sprintf("Staker: 0x%x\nRTC Staked: %v\nWeeks Staked: %v\nKhSec: %v\nStake Id: %v\n",_depositer, _amountStaked, _duration, _khSec, _id)
 	from := mail.NewEmail("stake-sendgrid-api", "sgapi@rtradetechnologies.com")
     subject := "New Stake Deposit Detected In Staking Contract"
     to := mail.NewEmail("Mining Stake", "stake@rtradetechnologies.com")
-    plainTextContent := "and easy to do anywhere, even with Go"
-    htmlContent := "<strong>and easy to do anywhere, even with Go</strong>"
+ 
+    mContent := mail.NewContent("text/plain", content)
+    m := mail.NewV3MailInit(from, subject, to, mContent)
+   	client := sendgrid.NewSendClient(os.Getenv("SENDGRID_API_KEY"))
+   	response, err := client.Send(m)
+   	if err != nil {
+   		fmt.Println("error sending message ", err)
+   	} else {
+   		fmt.Println("message send status code ", response.StatusCode)
+   	}
+
+    /*plainTextContent := string(content)
+    htmlContent := content
     message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
     client := sendgrid.NewSendClient(os.Getenv("SENDGRID_API_KEY"))
     response, err := client.Send(message)
@@ -57,7 +87,7 @@ func sendEmail(_depositer common.Address, _amountStaked big.Int, _duration big.I
     fmt.Println(response.StatusCode)
     fmt.Println(response.Body)
     fmt.Println(response.Headers)
-    }
+    }*/
 }
 
 
@@ -76,11 +106,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("error unlocking account")
 	} else {
-		fmt.Println("unlock successful")
+		fmt.Println("unlock successful", auth)
 	}
 
-	
-	address, tx, tokenLockup, err := TokenLockup.DeployTokenLockup(auth, client)
+	tokenLockup, err := TokenLockup.NewTokenLockup(common.HexToAddress("0x8784B8D248A85eD73eb37aC4aa61EA0bb0F86fb1"), client)	
+/*	address, tx, tokenLockup, err := TokenLockup.DeployTokenLockup(auth, client)
 	if err != nil {
 			log.Fatal("error deploying token ", err)
 	} else {
@@ -90,6 +120,7 @@ func main() {
 		fmt.Println("Press enter once contract is sucessfully deployed")
 		fmt.Scanln()
 	}
+*/
 
 	minStake, err := tokenLockup.MINSTAKE(nil)
 	if err != nil {
@@ -97,7 +128,5 @@ func main() {
 	} else {
 		fmt.Println("contract connection successful, min stake ", minStake)
 	}
-	go eventParser(tokenLockup)
-	fmt.Println("looping for enternity")
-	for {}
+	eventParser(tokenLockup)
 }
