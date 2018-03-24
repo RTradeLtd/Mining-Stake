@@ -51,14 +51,16 @@ func updateBboltDb(address common.Address, id *big.Int, db *bbolt.DB) {
 	}
 }
 
-func retrieveBolInformationForAddress(address common.Address, db *bbolt.DB) (id big.Int) {
+func retrieveBucketInformationForAddress(address common.Address, db *bbolt.DB) (*big.Int) {
+	var response []byte
 	db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("stakers"))
-		response := bucket.Get([]byte(address.Bytes()))
-		id.SetBytes([]byte(response))
+		response = bucket.Get([]byte(address.Bytes()))
 		return nil
 	})
-	return id
+	i := new(big.Int)
+	i.SetBytes(response)
+	return i
 }
 
 
@@ -81,6 +83,7 @@ func eventParser(contract *TokenLockup.TokenLockup, db *bbolt.DB) {
 				"%v, %v, %v, %v, %v\n", evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id)
 			sendEmail(evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id)
 			updateBboltDb(evLog.Depositer, evLog.Id, db)
+			//fmt.Printf("Retrieving bolt information to test %v", retrieveBoltInformationForAddress(evLog.Depositer, db))
 		}
 	}
 }

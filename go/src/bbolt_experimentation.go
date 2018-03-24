@@ -38,7 +38,7 @@ func updateBboltDb(address common.Address, id *big.Int, db *bbolt.DB) {
 	}
 }
 
-func retrieveBolInformationForAddress(address common.Address, db *bbolt.DB) (id big.Int) {
+func retrieveBoltInformationForAddress(address common.Address, db *bbolt.DB) (id big.Int) {
 	db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("stakers"))
 		response := bucket.Get([]byte(address.Bytes()))
@@ -49,7 +49,7 @@ func retrieveBolInformationForAddress(address common.Address, db *bbolt.DB) (id 
 }
 
 func main() {
-	db := bBoltSetup("test.db")
+	db := bBoltSetup("stakers.db")
 	fmt.Println("database connected to successfully")
 	updateBboltDb(common.HexToAddress("0x"), big.NewInt(100), db)
 	fmt.Println("database written to successfully")
