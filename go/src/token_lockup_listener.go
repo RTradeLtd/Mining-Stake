@@ -63,7 +63,7 @@ func retrieveBolInformationForAddress(address common.Address, db *bbolt.DB) (id 
 
 
 
-func eventParser(contract *TokenLockup.TokenLockup) {
+func eventParser(contract *TokenLockup.TokenLockup, db *bbolt.DB) {
 	var ch = make(chan *TokenLockup.TokenLockupStakeDeposited)
 	sub, err := contract.WatchStakeDeposited(nil, ch)
 	if err != nil {
@@ -80,6 +80,7 @@ func eventParser(contract *TokenLockup.TokenLockup) {
 			fmt.Printf(
 				"%v, %v, %v, %v, %v\n", evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id)
 			sendEmail(evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id)
+			updateBboltDb(evLog.Depositer, evLog.Id, db)
 		}
 	}
 }
@@ -103,6 +104,12 @@ func sendEmail(_depositer common.Address, _amountStaked *big.Int, _duration *big
 
 
 func main() {
+
+	db := bBoltSetup("stakers.db")
+
+	if len(os.Getenv("SENDGRID_API_KEY")) <= 15 {
+		log.Fatal("no valid send grid api key detected in environment variable")
+	}
 	// db := bBoltSetup("staker.db")
 	// defer db.Close()
 	fmt.Println("initiating ipc connection")
@@ -121,7 +128,7 @@ func main() {
 		fmt.Println("unlock successful", auth)
 	}
 
-	tokenLockup, err := TokenLockup.NewTokenLockup(common.HexToAddress("0x8784B8D248A85eD73eb37aC4aa61EA0bb0F86fb1"), client)	
+	tokenLockup, err := TokenLockup.NewTokenLockup(common.HexToAddress("0x5Ae6C285eeB2e5a9234956cbCf9dea2C97C3A773"), client)	
 
 	minStake, err := tokenLockup.MINSTAKE(nil)
 	if err != nil {
@@ -130,5 +137,5 @@ func main() {
 		fmt.Println("contract connection successful, min stake ", minStake)
 	}
 
-	eventParser(tokenLockup)
+	eventParser(tokenLockup, db)
 }
