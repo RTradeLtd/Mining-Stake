@@ -53,17 +53,42 @@ func updateBboltDb(address common.Address, id *big.Int, db *bbolt.DB) {
 
 func retrieveBucketInformationForAddress(address common.Address, db *bbolt.DB) (*big.Int) {
 	var response []byte
-	db.View(func(tx *bbolt.Tx) error {
-		bucket := tx.Bucket([]byte("stakers"))
-		response = bucket.Get([]byte(address.Bytes()))
-		return nil
-	})
+    db.View(func(tx *bbolt.Tx) error {
+        bucket := tx.Bucket([]byte("stakers"))
+        response = bucket.Get([]byte(address.Bytes()))
+        //id.SetBytes([]byte(response))
+        return nil
+    })
 	i := new(big.Int)
 	i.SetBytes(response)
 	return i
 }
 
+// this is used to calculate a users currently active hash rate so we can easily factor multiple stake payments into a single payment
+func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.Address, db *bbolt.DB) *big.Int {
+	var one = big.NewInt(1)
+	start := big.NewInt(0)
+	end := retrieveBucketInformationForAddress(address, db)
+	khSecSum := big.NewInt(0)
+//    rtcStaked, khSec, depositDate, releaseDate, id, enabled := 
+	for i := new(big.Int).Set(start); i.Cmp(end) == -1; i.Add(i, one) {
+		_, khSec, _, _, _, enabled, err := contract.GetStakerStruct(nil, address, i)
+		if err != nil {
+			log.Fatal("error calculcating hash rate ", err)
+		}
+		if enabled == true {
+			khSecSum.Add(khSecSum, khSec)
+		}
+	}
+	return khSecSum
+}
 
+func buildPayoutData(contract *TokenLockup.TokenLockup, addresses []common.Address, db *bbolt.DB) {
+	var m = make(map[common.Address]*big.Int)
+	for i := 0; i < len(addresses); i++ {
+		m[addresses[i]] = calculateActiveHashRate(contract, addresses[i], db)
+	}
+}
 
 func eventParser(contract *TokenLockup.TokenLockup, db *bbolt.DB) {
 	var ch = make(chan *TokenLockup.TokenLockupStakeDeposited)
@@ -84,6 +109,7 @@ func eventParser(contract *TokenLockup.TokenLockup, db *bbolt.DB) {
 			sendEmail(evLog.Depositer, evLog.Amount, evLog.WeeksStaked, evLog.KhSec, evLog.Id)
 			updateBboltDb(evLog.Depositer, evLog.Id, db)
 			//fmt.Printf("Retrieving bolt information to test %v", retrieveBoltInformationForAddress(evLog.Depositer, db))
+			calculateActiveHashRate(contract, evLog.Depositer, db)
 		}
 	}
 }
