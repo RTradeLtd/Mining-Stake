@@ -222,7 +222,15 @@ contract TokenLockup is Administration, usingOraclize {
             stakers[_staker][_id].enabled);
     }
 
-
+    function getNumStakes(
+        address _staker)
+        public
+        view
+        returns (uint256)
+    {
+        return numStakes[_staker];
+    }
+    
     /**
         @dev Callback function, used by Oraclize to update the eth-usd conversion rate
     */
