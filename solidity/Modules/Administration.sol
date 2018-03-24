@@ -54,4 +54,12 @@ contract Administration {
         owner = _newOwner;
         OwnershipTransferred(msg.sender, _newOwner, true);
     }
+
+    function owner() external view returns (address) {
+        return owner;
+    }
+
+    function admin() external view returns (address) {
+        return admin;
+    }
 }
