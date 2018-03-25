@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"fmt"
-	//"strings"
+	"strings"
 	"math/big"
 	//"os"
 
@@ -12,8 +12,8 @@ import (
 	//prompt "github.com/c-bata/go-prompt"
 	ishell "gopkg.in/abiosoft/ishell.v2"
 	"github.com/ethereum/go-ethereum/common"
-    //"github.com/ethereum/go-ethereum/ethclient"
-	//"github.com/ethereum/go-ethereum/accounts/abi/bind"
+    "github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	//"github.com/sendgrid/sendgrid-go"
 	//"github.com/sendgrid/sendgrid-go/helpers/mail"
 	
@@ -92,10 +92,44 @@ func buildPayoutData(contract *TokenLockup.TokenLockup, addresses []common.Addre
 	}
 }
 
+func authenticateWithContract()  (*ethclient.Client, *bind.TransactOpts, *TokenLockup.TokenLockup) {
+	fmt.Println("initiating ipc connection")
+	client, err := ethclient.Dial("/home/solidity/.ethereum/geth.ipc")
+	if err != nil {
+		log.Fatal("error connecting to blockchain ", err)
+	} else {
+		fmt.Println("ipc connection successfully established")
+	}
+
+	fmt.Println("unlocking eth account")
+	auth, err := bind.NewTransactor(strings.NewReader(key), "password123")
+	if err != nil {
+		log.Fatalf("error unlocking account")
+	} else {
+		fmt.Println("unlock successful", auth)
+	}
+
+	tokenLockup, err := TokenLockup.NewTokenLockup(common.HexToAddress("0x5Ae6C285eeB2e5a9234956cbCf9dea2C97C3A773"), client)	
+
+	minStake, err := tokenLockup.MINSTAKE(nil)
+	if err != nil {
+		log.Fatal("error connecting to contract", err)
+	} else {
+		fmt.Println("contract connection successful, min stake ", minStake)
+	}
+
+	return client, auth, tokenLockup
+}
 
 func main() {
 
-	//db := bBoltSetup("stakers.db")
+	fmt.Println("setting up bolt database")
+	db := bBoltSetup("stakers.db")
+
+	fmt.Println("establishing connection with contract")
+	_, _, tokenLockup := authenticateWithContract()
+
+
 	fmt.Println("establishing shell")
     shell := ishell.New()
 
@@ -110,11 +144,10 @@ func main() {
 	        // disable the '>>>' for cleaner same line input.
 	        c.ShowPrompt(false)
 	        defer c.ShowPrompt(true) // yes, revert after login.
-
-	        // get username
 	        c.Print("Address: ")
 	        address := c.ReadLine()
-	        fmt.Println(common.HexToAddress(address))
+	        hash := calculateActiveHashRate(tokenLockup, common.HexToAddress(address), db)
+	        fmt.Println(hash)
 	    },
 	})
 
