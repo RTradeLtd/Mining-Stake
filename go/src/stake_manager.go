@@ -66,6 +66,20 @@ func retrieveBucketInformationForAddress(address common.Address, db *bbolt.DB) (
 	return i
 }
 
+func iterateOverBucket(db *bbolt.DB) {
+	db.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket([]byte("stakers"))
+	    // Iterate over items in sorted key order.
+	    if err := bucket.ForEach(func(k, v []byte) error {
+	        fmt.Printf("A %v is %v.\n", k, v)
+	        return nil
+	    }); err != nil {
+	        return err
+	    }
+	    return nil
+	})
+}
+
 // this is used to calculate a users currently active hash rate so we can easily factor multiple stake payments into a single payment
 func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.Address, db *bbolt.DB) *big.Int {
 	var one = big.NewInt(1)
@@ -149,6 +163,15 @@ func main() {
 	        hash := calculateActiveHashRate(tokenLockup, common.HexToAddress(address), db)
 	        fmt.Println(hash)
 	    },
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "iterate-over-bucket",
+		Help: "iterates over the stakers bucket",
+		Func: func(c *ishell.Context) {
+			iterateOverBucket(db)
+			c.Print("db iter finished")
+		},
 	})
 
     // run shell
