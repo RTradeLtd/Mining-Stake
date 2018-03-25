@@ -161,7 +161,7 @@ func main() {
 	        c.Print("Address: ")
 	        address := c.ReadLine()
 	        hash := calculateActiveHashRate(tokenLockup, common.HexToAddress(address), db)
-	        fmt.Println(hash)
+	        c.Print(hash)
 	    },
 	})
 

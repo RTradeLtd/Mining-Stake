@@ -13,3 +13,11 @@ Options being explored:
 - Precommitting large sum of funds to contracts, and update the balances every 24 hours
 - state+payment channels
 - sidechain payment routing
+
+
+
+# Files
+
+`go/src/stake_manager.go` - program used to administer a staking contract. Do not run when token_lockup_listener is running
+`go/src/token_lockup_listener.go` - program used to listen for new stake deposits, and subsequently update our bolt db. Do not use while stake manager running
+`solidity/src/TokenLockupV2.sol` - this is the actual contract used to stake in
