@@ -1,3 +1,4 @@
+go_import_path: https://github.com/RTradeLtd/Mining-Stake/tree/V3/go/src/token_lockup
 language: go
 go: 
         - "1.10"
