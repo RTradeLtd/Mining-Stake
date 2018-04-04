@@ -1,4 +1,4 @@
-# Mining-Stake
+# Mining-Stake [![Build Status](https://travis-ci.org/RTradeLtd/Mining-Stake.svg?branch=V3)](https://travis-ci.org/RTradeLtd/Mining-Stake)
 
 Mining-Stake contains code related to the staking of RTC into smart contracts, which grants ethhash mining power at enabled locations.
 The payouts are structured such that every 24 hours, a percentage of the usd value of the eth that was mined with the granted hash rate is given in RTC as a stake, directly to your wallet. Every 7 days, the total eth that was mined by the granted hash rate in the last 7 days is sent directly to your wallet. 
