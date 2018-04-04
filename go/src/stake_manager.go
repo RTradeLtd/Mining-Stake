@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"bufio"
 	"os"
+	"strconv"
 
 	"github.com/howeyc/gopass"
 
@@ -135,10 +136,11 @@ func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.A
 }
 
 // WIP
-func calculatePayout(khSec *big.Int) {
+func calculatePayout(mhSec int64, diffTH int64, blockTimeSec int64, blockReward int64, ethPrice int64) (float64, error) {
 	//EarningsPerMonth = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24*30)*(EthPrice)
-	//EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)
-	//usdEarningsPerDay = (1.875 * 1e6 / ((3100 / 13)*1000*1e9))*((60/ 13)*3)*(60*24)*(404)
+	//EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)	
+	usdEarningsPerDay := float64((mhSec * 1e6 / ((diffTH / blockTimeSec)*1000*1e9))*((60/ blockTimeSec)*blockReward)*(60*24)*(ethPrice))
+	return usdEarningsPerDay, nil
 }
 
 
@@ -213,6 +215,23 @@ func main() {
 	fmt.Println("establishing connection with contract")
 	_, auth, tokenLockup := authenticateWithContract()
 
+	scanner := bufio.NewScanner(os.Stdin)
+
+	fmt.Println("Please enter network difficulty in TH")
+	scanner.Scan()
+	diffTH, err := strconv.ParseInt(scanner.Text(), 0, 64)
+
+	fmt.Println("Please enter block time in seconds")
+	scanner.Scan()
+	blockTimeSec, err := strconv.ParseInt(scanner.Text(), 0, 64)
+
+	fmt.Println("Please enter blcok reward")
+	scanner.Scan()
+	blockReward, err := strconv.ParseInt(scanner.Text(), 0, 64)
+
+	fmt.Println("Please enter eth price in usd")
+	scanner.Scan()
+	ethPrice, err := strconv.ParseInt(scanner.Text(), 0, 64)
 
 	// used to create a new shell
 	fmt.Println("establishing shell")
@@ -230,12 +249,17 @@ func main() {
 	        defer c.ShowPrompt(true) // yes, revert after login.
 	        c.Print("Address: ")
 	        address := c.ReadLine()
-	        hash := calculateActiveHashRate(tokenLockup, common.HexToAddress(address), db)
-	        c.Print(hash)
+	        kHash := calculateActiveHashRate(tokenLockup, common.HexToAddress(address), db)
+	        mHash := new(big.Int).Div(kHash, big.NewInt(1000))
+	        mHashInt := mHash.Int64()
+	        usdEarningsPerDay, err := calculatePayout(mHashInt, diffTH, blockTimeSec, blockReward, ethPrice)
+	        if err != nil {
+	        	log.Fatal("error parsing hash rate ", err)
+	        }
+	        c.Print("Mega hashes ", mHash)
+	        c.Print("Usd earnings per day ", usdEarningsPerDay)
 	    },
 	})
-
-
 
 	/*
 		TO DO:
