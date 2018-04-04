@@ -9,6 +9,8 @@ import (
 	"bufio"
 	"os"
 
+	"github.com/howeyc/gopass"
+
 	// bbolt will be used to store active stakers
 	bbolt "github.com/coreos/bbolt"
 	//prompt "github.com/c-bata/go-prompt"
@@ -25,7 +27,7 @@ import (
 	"./token_lockup"
 )
 
-const key = `{"address":"d72f0d88384c05c3d95c870ba98ac2d606939c65","crypto":{"cipher":"aes-128-ctr","ciphertext":"589a88ccbdaa312595343c907e944c8b9d9e133d443b43d4efa71c6c7cea26d0","cipherparams":{"iv":"4429d785f61dd7d37d7813a8a422d941"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"f92dbdb8c2c4686a839978d9dab36601a2e950d001b6d7131dd9a22c68f32da1"},"mac":"9037da8e700215e1d79043a4fcac847768d27e28dfcd3ce16f094eb1d837f1e1"},"id":"6472fa0e-80e4-475a-8f35-ede98c37641e","version":3}`
+//const key = `{"address":"d72f0d88384c05c3d95c870ba98ac2d606939c65","crypto":{"cipher":"aes-128-ctr","ciphertext":"589a88ccbdaa312595343c907e944c8b9d9e133d443b43d4efa71c6c7cea26d0","cipherparams":{"iv":"4429d785f61dd7d37d7813a8a422d941"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"f92dbdb8c2c4686a839978d9dab36601a2e950d001b6d7131dd9a22c68f32da1"},"mac":"9037da8e700215e1d79043a4fcac847768d27e28dfcd3ce16f094eb1d837f1e1"},"id":"6472fa0e-80e4-475a-8f35-ede98c37641e","version":3}`
 //EarningsPerMonth = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24*30)*(EthPrice)
 //EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)
 
@@ -136,6 +138,7 @@ func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.A
 func calculatePayout(khSec *big.Int) {
 	//EarningsPerMonth = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24*30)*(EthPrice)
 	//EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)
+	//usdEarningsPerDay = (1.875 * 1e6 / ((3100 / 13)*1000*1e9))*((60/ 13)*3)*(60*24)*(404)
 }
 
 
@@ -166,8 +169,18 @@ func authenticateWithContract()  (*ethclient.Client, *bind.TransactOpts, *TokenL
 		fmt.Println("ipc connection successfully established")
 	}
 
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Println("please enter raw contents of json key file")
+	scanner.Scan()
+	key := scanner.Text()
+
+	fmt.Println("enter password to unlock key")
+	pass, err := gopass.GetPasswd()
+	if err != nil {
+		log.Fatal("error reading password")
+	}
 	fmt.Println("unlocking eth account")
-	auth, err := bind.NewTransactor(strings.NewReader(key), "password123")
+	auth, err := bind.NewTransactor(strings.NewReader(key), string(pass))
 	if err != nil {
 		log.Fatalf("error unlocking account")
 	} else {
@@ -198,7 +211,7 @@ func main() {
 
 	// make sure we can interact with the contract
 	fmt.Println("establishing connection with contract")
-	_, _, tokenLockup := authenticateWithContract()
+	_, auth, tokenLockup := authenticateWithContract()
 
 
 	// used to create a new shell
@@ -222,10 +235,18 @@ func main() {
 	    },
 	})
 
+
+
+	/*
+		TO DO:
+			When we check the start date, make surre a full 24 hors have past at least
+	*/
 	shell.AddCmd(&ishell.Cmd{
 		Name: "construct-payout-data",
 		Help: "build payout data for active stakers",
 		Func: func(c *ishell.Context) {
+			var addresses []common.Address
+			rtc := big.NewInt(44600000000000000)
 			c.ShowPrompt(false)
 			defer c.ShowPrompt(true)
 			m = iterateOverBucket(db)
@@ -235,6 +256,7 @@ func main() {
 				log.Fatal("error creating file")
 			}
 			for k, _ := range m {
+				addresses = append(addresses, k)
 				hash := calculateActiveHashRate(tokenLockup, k, db)
 				// since we're dealing with big numbers, we can simply just divide by 10^18, we need to do that by utilizing big int variables
 				exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
@@ -244,6 +266,13 @@ func main() {
 				if err != nil {
 					log.Fatal("error writing to file")
 				}
+			}
+			tx, err := tokenLockup.RouteRtcRewards(auth, addresses, rtc)
+			if err != nil {
+				log.Fatal("error routing token payments")
+			} else {
+				fmt.Println("token payments routed successfully")
+				fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
 			}
 			writer.Flush()
 		},
