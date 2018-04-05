@@ -185,16 +185,18 @@ contract TokenLockup is Administration, usingOraclize {
 
     function routeEthReward(
         address[] _stakers,
-        uint256 _ethPerPerson)  
+        uint256[] _payments)  
         public
         onlyAdmin
         payable
         returns (bool)
     {
+        require(_stakers.length == _payments.length);
         for (uint256 i = 0; i < _stakers.length; i++) {
-            rewards[_stakers[i]].ethRewarded = rewards[_stakers[i]].ethRewarded.add(_ethPerPerson);
-            emit EthReward(_stakers[i], _ethPerPerson);
-            require(_stakers[i].send(_ethPerPerson));
+            uint256 eth = _payments[i];
+            rewards[_stakers[i]].ethRewarded = rewards[_stakers[i]].ethRewarded.add(eth);
+            emit EthReward(_stakers[i], eth);
+            require(_stakers[i].send(eth));
         }
         return true;
     }
