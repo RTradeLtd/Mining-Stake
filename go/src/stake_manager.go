@@ -312,14 +312,14 @@ func main() {
 				if err != nil {
 					log.Fatal("error writing to file")
 				}
-			}
+			}/*
 			tx, err := tokenLockup.RouteRtcRewards(auth, addresses, rtc)
 			if err != nil {
 				log.Fatal("error routing token payments")
 			} else {
 				fmt.Println("token payments routed successfully")
 				fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
-			}
+			}*/
 			writer.Flush()
 		},
 	})
