@@ -168,15 +168,17 @@ contract TokenLockup is Administration, usingOraclize {
 
     function routeRtcRewards(
         address[] _stakers,
-        uint256 _rtcPerStaker)
+        uint256[] _payments)
         public
         onlyAdmin
         returns (bool)
     {
+        require(_stakers.length == _payments.length);
         for (uint256 i = 0; i < _stakers.length; i++) {
-            rewards[_stakers[i]].rtcRewarded = rewards[_stakers[i]].rtcRewarded.add(_rtcPerStaker);
-            emit RtcReward(_stakers[i], _rtcPerStaker);
-            require(rtI.transferFrom(msg.sender, _stakers[i], _rtcPerStaker));
+            uint256 rtc = _payments[i];
+            rewards[_stakers[i]].rtcRewarded = rewards[_stakers[i]].rtcRewarded.add(rtc);
+            emit RtcReward(_stakers[i], rtc);
+            require(rtI.transferFrom(msg.sender, _stakers[i], rtc));
         }
         return true;
     }
