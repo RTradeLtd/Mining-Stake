@@ -136,10 +136,10 @@ func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.A
 }
 
 // WIP
-func calculatePayout(mhSec int64, diffTH int64, blockTimeSec int64, blockReward int64, ethPrice int64) (float64, error) {
+func calculatePayout(mhSec float64, diffTH float64, blockTimeSec float64, blockReward float64, ethPrice float64) (float64, error) {
 	//EarningsPerMonth = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24*30)*(EthPrice)
 	//EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)	
-	usdEarningsPerDay := float64((mhSec * 1e6 / ((diffTH / blockTimeSec)*1000*1e9))*((60/ blockTimeSec)*blockReward)*(60*24)*(ethPrice))
+	usdEarningsPerDay := (mhSec * 1e6 / ((diffTH / blockTimeSec)*1000*1e9))*((60/ blockTimeSec)*blockReward)*(60*24)*(ethPrice)
 	return usdEarningsPerDay, nil
 }
 
@@ -220,18 +220,30 @@ func main() {
 	fmt.Println("Please enter network difficulty in TH")
 	scanner.Scan()
 	diffTH, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	if err != nil {
+		log.Fatal("error parsing int ", err)
+	}
 
 	fmt.Println("Please enter block time in seconds")
 	scanner.Scan()
 	blockTimeSec, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	if err != nil {
+		log.Fatal("error parsing int ", err)
+	}
 
 	fmt.Println("Please enter blcok reward")
 	scanner.Scan()
 	blockReward, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	if err != nil {
+		log.Fatal("error parsing int ", err)
+	}
 
 	fmt.Println("Please enter eth price in usd")
 	scanner.Scan()
 	ethPrice, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	if err != nil {
+		log.Fatal("error parsing int ", err)
+	}
 
 	// used to create a new shell
 	fmt.Println("establishing shell")
@@ -249,15 +261,19 @@ func main() {
 	        defer c.ShowPrompt(true) // yes, revert after login.
 	        c.Print("Address: ")
 	        address := c.ReadLine()
-	        kHash := calculateActiveHashRate(tokenLockup, common.HexToAddress(address), db)
-	        mHash := new(big.Int).Div(kHash, big.NewInt(1000))
-	        mHashInt := mHash.Int64()
-	        usdEarningsPerDay, err := calculatePayout(mHashInt, diffTH, blockTimeSec, blockReward, ethPrice)
+	        hash := calculateActiveHashRate(tokenLockup, common.HexToAddress(address), db)
+	        exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	        dv := new(big.Int).Div(hash, exp)
+	        mHash := float64(dv.Int64()) / float64(1000)
+	        fmt.Println("mhash rate ", mHash)
+	        usdEarningsPerDay, err := calculatePayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethPrice))
+	        rtcPerDay := (usdEarningsPerDay * 0.1) / 0.125
 	        if err != nil {
 	        	log.Fatal("error parsing hash rate ", err)
 	        }
 	        c.Print("Mega hashes ", mHash)
 	        c.Print("Usd earnings per day ", usdEarningsPerDay)
+	        c.Print("RTC earnings per day ", rtcPerDay)
 	    },
 	})
 
@@ -266,11 +282,12 @@ func main() {
 			When we check the start date, make surre a full 24 hors have past at least
 	*/
 	shell.AddCmd(&ishell.Cmd{
-		Name: "construct-payout-data",
+		Name: "construct-rtc-payout-data",
 		Help: "build payout data for active stakers",
 		Func: func(c *ishell.Context) {
 			var addresses []common.Address
-			rtc := big.NewInt(44600000000000000)
+			var rtcs      []*big.Int
+			rtc := big.NewInt(41400000000000000)
 			c.ShowPrompt(false)
 			defer c.ShowPrompt(true)
 			m = iterateOverBucket(db)
@@ -281,12 +298,17 @@ func main() {
 			}
 			for k, _ := range m {
 				addresses = append(addresses, k)
-				hash := calculateActiveHashRate(tokenLockup, k, db)
-				// since we're dealing with big numbers, we can simply just divide by 10^18, we need to do that by utilizing big int variables
-				exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-				dv := new(big.Int).Div(hash, exp)
-				fmt.Println(dv)
-				_, err = fmt.Fprintf(writer, "Address\t0x%x\nKhSec \t%v\n", k, dv)
+				address := k
+	        	hash := calculateActiveHashRate(tokenLockup, address, db)
+	        	exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	        	dv := new(big.Int).Div(hash, exp)
+	        	mHash := float64(dv.Int64()) / float64(1000)
+	        	fmt.Println("mhash rate ", mHash)
+	        	usdEarningsPerDay, err := calculatePayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethPrice))
+	        	rtcPerDay := (usdEarningsPerDay * 0.1) / 0.125
+	        	rtcPerDayInt := big.NewInt(int64(rtcPerDay))
+	        	rtcs = append(rtcs, rtcPerDayInt)
+				_, err = fmt.Fprintf(writer, "Address\t0x%x\nmHSec \t%v\nrtc per day\t%v\n", k, mHash, rtcPerDay)
 				if err != nil {
 					log.Fatal("error writing to file")
 				}
