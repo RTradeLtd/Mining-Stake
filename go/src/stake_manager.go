@@ -283,11 +283,11 @@ func main() {
 	*/
 	shell.AddCmd(&ishell.Cmd{
 		Name: "construct-rtc-payout-data",
-		Help: "build payout data for active stakers",
+		Help: "build rtc payout data for active stakers",
 		Func: func(c *ishell.Context) {
 			var addresses []common.Address
 			var rtcs      []*big.Int
-			rtc := big.NewInt(41400000000000000)
+			rtc := big.NewInt(39504000000000000)
 			c.ShowPrompt(false)
 			defer c.ShowPrompt(true)
 			m = iterateOverBucket(db)
@@ -312,17 +312,66 @@ func main() {
 				if err != nil {
 					log.Fatal("error writing to file")
 				}
-			}/*
+			}
 			tx, err := tokenLockup.RouteRtcRewards(auth, addresses, rtc)
 			if err != nil {
 				log.Fatal("error routing token payments")
 			} else {
 				fmt.Println("token payments routed successfully")
 				fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
-			}*/
+			}
 			writer.Flush()
 		},
 	})
+
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "construct-eth-payout-data",
+		Help: "build eth payout data for active stakers",
+		Func: func(c *ishell.Context) {
+			var addresses 	[]common.Address
+			var eths 		[]*big.Int
+			eth := big.NewInt(546900000000000)
+			c.ShowPrompt(false)
+			// prevent prompt from showing up until we're done processing
+			defer c.ShowPrompt(true)
+			m := iterateOverBucket(db)
+			file, err := os.Create("eth.txt")
+			writer := bufio.NewWriter(file)
+			if err != nil {
+				log.Fatal("error creating file")
+			}
+			for k, _ := range m {
+				addresses = append(addresses, k)
+				address := k
+				hash := calculateActiveHashRate(tokenLockup, address, db)
+	        	exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	        	dv := new(big.Int).Div(hash, exp)
+	        	mHash := float64(dv.Int64()) / float64(1000)
+	        	fmt.Println("mhash rate ", mHash)
+	        	usdEarningsPerDay, err := calculatePayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethPrice))
+	        	fmt.Println("usd eth earnings per day ", usdEarningsPerDay)
+	        	ethEarningsPerDay := float64(ethPrice) * usdEarningsPerDay
+	        	ethEarningsPerDayInt := big.NewInt(int64(ethEarningsPerDay))
+	        	eths = append(eths, ethEarningsPerDayInt)
+	        	_, err = fmt.Println(writer, "Address\t0x%x\nmHSec\t%v\neth per day\t%v\n", k, mHash, ethEarningsPerDay)
+	        	if err != nil {
+	        		log.Fatal("error writing to file")
+	        	}
+			}
+			totalEthToSend := big.NewInt(int64(len(addresses)))
+			auth.Value = totalEthToSend
+			tx, err := tokenLockup.RouteEthReward(auth, addresses, eth)
+			if err != nil {
+				log.Fatal("error routing eth payments")
+			} else {
+				fmt.Println("Eth payments routed successfully")
+				fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
+			}
+			writer.Flush()
+		},
+		})
+
 
 	shell.AddCmd(&ishell.Cmd{
 		Name: "iterate-over-bucket",
