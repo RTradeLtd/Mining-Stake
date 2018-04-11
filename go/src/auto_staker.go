@@ -110,8 +110,9 @@ func (x *Int) Cmp(y *Int) (r int)
     +1 if x >  y
 */
 	
-	// the person only has one stake 
+	// Here we check to see if their stake id is equal to 0, if so it means we only have one stake to process
 	if end.Cmp(zero) == 0 {
+		// check to make sure the stake is enabled, but also grab the khsec
 		_, khSec, _, _, _, enabled, err := contract.GetStakerStruct(nil, address, zero)
 		if err != nil {
 			log.Fatal("error calculating active hash rate")
@@ -122,10 +123,9 @@ func (x *Int) Cmp(y *Int) (r int)
 			return zero
 		}
 	} else if end.Cmp(zero) == +1 {
-		// big nums can't do standard ">, ==, <" comparisons and neeed
-		// tp use the built in functions into big num types
+		// person has more than one stake so we have to parse them all
 		for i := new(big.Int).Set(start); i.Cmp(end) == -1; i.Add(i, one) {
-			// retrieve teh staker struct from the contract
+			// retrieve teh staker struct from the contract and check its status
 			_, khSec, _, _, _, enabled, err := contract.GetStakerStruct(nil, address, i)
 			if err != nil {
 				log.Fatal("error calculcating hash rate ", err)
@@ -149,7 +149,7 @@ func calculateUsdEarnings(mhSec float64, diffTH float64, blockTimeSec float64, b
 	return usdEarningsPerDay, nil
 }
 
-// used to calculate a person's estiamted USD earnings a day of mined ether
+// used to calculate the estimated amount of ether that is going ot be mined in a 24 hour period
 func calculateEthEarnings(mhSec float64, diffTH float64, blockTimeSec float64, blockReward float64) (float64, error) {
 	ethEarningsPerDay := (mhSec * 1e6 / ((diffTH / blockTimeSec)*1000*1e9))*((60/ blockTimeSec)*blockReward)*(60*24)
 	return ethEarningsPerDay, nil
@@ -189,6 +189,7 @@ func authenticateWithContract()  (*ethclient.Client, *bind.TransactOpts, *TokenL
 }
 
 // authenticates with the blockchain, and the payment routing contract
+// this is temporary for the beta, and will be removed when we move to production
 func authenticateWithRouter()  (*PaymentRouter.PaymentRouter) {
 	fmt.Println("initiating ipc connection")
 	client, err := ethclient.Dial("/home/solidity/.ethereum/rinkeby/geth.ipc")
@@ -206,8 +207,7 @@ func authenticateWithRouter()  (*PaymentRouter.PaymentRouter) {
 	return paymentRouter
 }
 
-
-
+// use to send an email when a payment has been processed
 func sendEmail(_coin string) {
 	content := fmt.Sprintf("New Payment Sent for %s\n", _coin)
 	from := mail.NewEmail("stake-sendgrid-api", "sgapi@rtradetechnologies.com")

@@ -243,14 +243,10 @@ func main() {
 		log.Fatal("error retrieving previous block headers ", err)
 	}
 
-	fmt.Println("printing block headers")
-	fmt.Println(currentBlock, previousBlock)
-
-
-	// big.Int type
-	//diffTH_ := currentBlock.Difficulty
-	//diffThInt := diffTH_.Int64()
-	diffTH := float64(3088)
+	fmt.Println("enter network difficulty in terahashes")
+	scanner.Scan()
+	diffInt, err := strconv.ParseInt(scanner.Text(), 10, 64)
+	diffTH := float64(diffInt)
 	totalDiffTh := currentBlock.TotalDifficulty
 	currentBlockTimestamp := currentBlock.Timestamp
 	previousBlockTimestamp := previousBlock.Timestamp
