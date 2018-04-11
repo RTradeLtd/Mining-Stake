@@ -191,6 +191,7 @@ contract TokenLockup is Administration, usingOraclize {
         payable
         returns (bool)
     {
+        require(msg.value > 0);
         require(_stakers.length == _payments.length);
         for (uint256 i = 0; i < _stakers.length; i++) {
             uint256 eth = _payments[i];
