@@ -10,27 +10,19 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/onrik/ethrpc"
 	"github.com/howeyc/gopass"
 
-	// bbolt will be used to store active stakers
 	bbolt "github.com/coreos/bbolt"
-	//prompt "github.com/c-bata/go-prompt"
 	ishell "gopkg.in/abiosoft/ishell.v2"
+
 	"github.com/ethereum/go-ethereum/common"
     "github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-    "github.com/ethereum/go-ethereum/rpc"
-    //"github.com/ethereum/go-ethereum/core/types"
-	//"github.com/ethereum/go-ethereum/ethstats"
-	//"github.com/sendgrid/sendgrid-go"
-	//"github.com/sendgrid/sendgrid-go/helpers/mail"
 	
-	"github.com/RTradeLtd/Mining-Stake/token_lockup"
+	"./token_lockup"
+	"./payment_router"
 )
-
-//const key = `{"address":"d72f0d88384c05c3d95c870ba98ac2d606939c65","crypto":{"cipher":"aes-128-ctr","ciphertext":"589a88ccbdaa312595343c907e944c8b9d9e133d443b43d4efa71c6c7cea26d0","cipherparams":{"iv":"4429d785f61dd7d37d7813a8a422d941"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"f92dbdb8c2c4686a839978d9dab36601a2e950d001b6d7131dd9a22c68f32da1"},"mac":"9037da8e700215e1d79043a4fcac847768d27e28dfcd3ce16f094eb1d837f1e1"},"id":"6472fa0e-80e4-475a-8f35-ede98c37641e","version":3}`
-//EarningsPerMonth = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24*30)*(EthPrice)
-//EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)
 
 func bBoltSetup(dbPath string) *bbolt.DB {
 	// setup the bbolt database
@@ -49,49 +41,44 @@ func bBoltSetup(dbPath string) *bbolt.DB {
 	return db
 }
 
-// used to update the database
-func updateBboltDb(address common.Address, id *big.Int, db *bbolt.DB) {
-	err := db.Update(func(tx *bbolt.Tx) error {
-		// creates the bucket if it doesnt exist
-		bucket, err := tx.CreateBucketIfNotExists([]byte("stakers"))
-		if err != nil {
-			log.Fatal("error connecting to stakers bucket in bolt database ", err)
-		}
-		// adds data to bucket
-		err = bucket.Put([]byte(address.Bytes()), []byte(id.Bytes()))
-		return err
-	})
-	// if err == nil, then we can assume the database wasn't updated properly
-	if err != nil {
-		log.Fatal("error updating bolt stakers bucket ", err)
-	}
-}
-
 // used to retrieve the stake ID for an account
 func retrieveBucketInformationForAddress(address common.Address, db *bbolt.DB) (*big.Int) {
+	// bbolt only knows []byte types, so we have to encode our response
 	var response []byte
+	// create a transaction request to bbolt
+	// 
     db.View(func(tx *bbolt.Tx) error {
+    	// initiate a bucket connection
         bucket := tx.Bucket([]byte("stakers"))
+        // poll the bucket for the aprticular address in []byte format
         response = bucket.Get([]byte(address.Bytes()))
         //id.SetBytes([]byte(response))
         return nil
     })
+    // establish a new big int
 	i := new(big.Int)
+	// copy the bytes of response, and set it to big int in `i`
 	i.SetBytes(response)
 	return i
 }
 
 // used to iterate over the  bucket, returning a map with the contents
 func iterateOverBucket(db *bbolt.DB) map[common.Address]uint64 {
+	// establish a map, key type common.Address value type uint64
 	var m = make(map[common.Address]uint64)
+	// create a transaction requesst to the bbolt db
 	db.View(func(tx *bbolt.Tx) error {
+		// establish a bucket connection
 		bucket := tx.Bucket([]byte("stakers"))
-	    // Iterate over items in sorted key order.
+	    // Iterate over every item in teh bucket, in order
 	    if err := bucket.ForEach(func(k, v []byte) error {
 	    	address := k
+	    	// parse address into string
 	    	hexAddr := fmt.Sprintf("0x%x", address)
+	    	// parse the []byte value into a uint
 	    	stakeId, _ := binary.Uvarint(v)
 	        fmt.Printf("Staker\t0x%x\nStake ID\t%v\n", address, stakeId)
+	        // update map, converting key to common.Address
 	        m[common.HexToAddress(hexAddr)] = stakeId
 	        return nil
 	    }); err != nil {
@@ -104,6 +91,7 @@ func iterateOverBucket(db *bbolt.DB) map[common.Address]uint64 {
 
 // this is used to calculate a users currently active hash rate so we can easily factor multiple stake payments into a single payment
 func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.Address, db *bbolt.DB) *big.Int {
+	// since we're dealing wtith big numbers, we have to appropriately convert
 	var one = big.NewInt(1)
 	var zero = big.NewInt(0)
 	start := big.NewInt(0)
@@ -111,12 +99,18 @@ func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.A
 	khSecSum := big.NewInt(0)
 	// generate new big int, and set it to start
 	// compare i to end, if less than end (-1) continue, increment counter by 1
+	// if 0, then we have multiple stakes to parse through
+	// otherwise we just have one stake to parse
 	if end.Cmp(one) == 0 {
+		// big nums can't do standard ">, ==, <" comparisons and neeed
+		// tp use the built in functions into big num types
 		for i := new(big.Int).Set(start); i.Cmp(end) == -1; i.Add(i, one) {
+			// retrieve teh staker struct from the contract
 			_, khSec, _, _, _, enabled, err := contract.GetStakerStruct(nil, address, i)
 			if err != nil {
 				log.Fatal("error calculcating hash rate ", err)
 			}
+			// if the stake is enabled, then we add it to the total.
 			if enabled == true {
 				khSecSum.Add(khSecSum, khSec)
 			}
@@ -135,29 +129,16 @@ func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.A
 	}
 }
 
-// WIP
+// used to calculate a person's estiamted USD earnings a day of mined ether
 func calculatePayout(mhSec float64, diffTH float64, blockTimeSec float64, blockReward float64, ethPrice float64) (float64, error) {
-	//EarningsPerMonth = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24*30)*(EthPrice)
-	//EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)	
 	usdEarningsPerDay := (mhSec * 1e6 / ((diffTH / blockTimeSec)*1000*1e9))*((60/ blockTimeSec)*blockReward)*(60*24)*(ethPrice)
 	return usdEarningsPerDay, nil
 }
 
 
-// WIP (most likely will be discarded)
-func buildPayoutData(contract *TokenLockup.TokenLockup, addresses []common.Address, db *bbolt.DB) {
-	var m = make(map[common.Address]*big.Int)
-	for i := 0; i < len(addresses); i++ {
-		m[addresses[i]] = calculateActiveHashRate(contract, addresses[i], db)
-	}
-}
-
 // used to create an RPC connection with the block chain
-func establishRpcConnection(rpcUrl string) *rpc.Client {
-	rpcClient, err := rpc.Dial(rpcUrl)
-	if err != nil {
-		log.Fatal("error establishing RPC connection ", err)
-	}
+func establishRpcConnection(rpcUrl string) *ethrpc.EthRPC {
+	rpcClient := ethrpc.New(rpcUrl)
 	return rpcClient
 }
 
@@ -201,7 +182,31 @@ func authenticateWithContract()  (*ethclient.Client, *bind.TransactOpts, *TokenL
 	return client, auth, tokenLockup
 }
 
+
+
+// authenticates with the blockchain, and the payment routing contract
+func authenticateWithRouter()  (*PaymentRouter.PaymentRouter) {
+	fmt.Println("initiating ipc connection")
+	client, err := ethclient.Dial("/home/solidity/.ethereum/rinkeby/geth.ipc")
+	if err != nil {
+		log.Fatal("error connecting to blockchain ", err)
+	} else {
+		fmt.Println("ipc connection successfully established")
+	}
+
+	paymentRouter, err := PaymentRouter.NewPaymentRouter(common.HexToAddress("0x5Ae6C285eeB2e5a9234956cbCf9dea2C97C3A773"), client)	
+	if err != nil {
+		log.Fatal("error establishign connecction with payment router")
+	}
+
+	return paymentRouter
+}
+
 func main() {
+
+	// used to create a scanner to allow us to read informat
+    scanner := bufio.NewScanner(os.Stdin)
+	
 	// create map to store stake data
 	var m = make(map[common.Address]uint64)
 
@@ -214,36 +219,51 @@ func main() {
 	// make sure we can interact with the contract
 	fmt.Println("establishing connection with contract")
 	_, auth, tokenLockup := authenticateWithContract()
+	paymentRouter := authenticateWithRouter()
 
-	scanner := bufio.NewScanner(os.Stdin)
+	rpcClient := establishRpcConnection("http://127.0.0.1:8545")
 
-	fmt.Println("Please enter network difficulty in TH")
-	scanner.Scan()
-	diffTH, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	currentBlockNum, err := rpcClient.EthBlockNumber()
 	if err != nil {
-		log.Fatal("error parsing int ", err)
+		log.Fatal("error reading block num ", err)
 	}
 
-	fmt.Println("Please enter block time in seconds")
-	scanner.Scan()
-	blockTimeSec, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	previousBlockNum := currentBlockNum - 1
+
+	// now that we have the latest and previous block, we can go about
+	// parsing the data
+
+	currentBlock, err := rpcClient.EthGetBlockByNumber(currentBlockNum, false)
 	if err != nil {
-		log.Fatal("error parsing int ", err)
+		log.Fatal("error retrieving current  block headers ",err)
 	}
 
-	fmt.Println("Please enter blcok reward")
-	scanner.Scan()
-	blockReward, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	previousBlock, err := rpcClient.EthGetBlockByNumber(previousBlockNum, false)
 	if err != nil {
-		log.Fatal("error parsing int ", err)
+		log.Fatal("error retrieving previous block headers ", err)
 	}
 
-	fmt.Println("Please enter eth price in usd")
+	fmt.Println("printing block headers")
+	fmt.Println(currentBlock, previousBlock)
+
+
+	// big.Int type
+	//diffTH_ := currentBlock.Difficulty
+	//diffThInt := diffTH_.Int64()
+	diffTH := float64(3088)
+	totalDiffTh := currentBlock.TotalDifficulty
+	currentBlockTimestamp := currentBlock.Timestamp
+	previousBlockTimestamp := previousBlock.Timestamp
+	blockTimeSec := currentBlockTimestamp - previousBlockTimestamp
+	blockReward := float64(3)
+	fmt.Println("Please enter eth USD price")
 	scanner.Scan()
-	ethPrice, err := strconv.ParseInt(scanner.Text(), 0, 64)
-	if err != nil {
-		log.Fatal("error parsing int ", err)
-	}
+	int, err := strconv.ParseInt(scanner.Text(), 10, 64)
+	ethPrice := float64(int)
+
+
+	fmt.Printf("Difficulty %v\nBlock Time %v\nBlock Reward %v\nEth Price %v\nTotal Diff %v\n",
+		diffTH, blockTimeSec, blockReward, ethPrice, totalDiffTh)
 
 	// used to create a new shell
 	fmt.Println("establishing shell")
@@ -251,31 +271,6 @@ func main() {
 
     // display welcome info.
     shell.Println("RTrade Technology Stake Manager")
-
-	shell.AddCmd(&ishell.Cmd{
-	    Name: "single-payout",
-	    Help: "construct payout data for a single staker",
-	    Func: func(c *ishell.Context) {
-	        // disable the '>>>' for cleaner same line input.
-	        c.ShowPrompt(false)
-	        defer c.ShowPrompt(true) // yes, revert after login.
-	        c.Print("Address: ")
-	        address := c.ReadLine()
-	        hash := calculateActiveHashRate(tokenLockup, common.HexToAddress(address), db)
-	        exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	        dv := new(big.Int).Div(hash, exp)
-	        mHash := float64(dv.Int64()) / float64(1000)
-	        fmt.Println("mhash rate ", mHash)
-	        usdEarningsPerDay, err := calculatePayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethPrice))
-	        rtcPerDay := (usdEarningsPerDay * 0.1) / 0.125
-	        if err != nil {
-	        	log.Fatal("error parsing hash rate ", err)
-	        }
-	        c.Print("Mega hashes ", mHash)
-	        c.Print("Usd earnings per day ", usdEarningsPerDay)
-	        c.Print("RTC earnings per day ", rtcPerDay)
-	    },
-	})
 
 	/*
 		TO DO:
@@ -287,15 +282,14 @@ func main() {
 		Func: func(c *ishell.Context) {
 			var addresses []common.Address
 			var rtcs      []*big.Int
-			rtc := big.NewInt(39504000000000000)
 			c.ShowPrompt(false)
 			defer c.ShowPrompt(true)
 			m = iterateOverBucket(db)
 			file, err := os.Create("test")
-			writer := bufio.NewWriter(file)
 			if err != nil {
 				log.Fatal("error creating file")
 			}
+			writer := bufio.NewWriter(file)
 			for k, _ := range m {
 				addresses = append(addresses, k)
 				address := k
@@ -313,7 +307,7 @@ func main() {
 					log.Fatal("error writing to file")
 				}
 			}
-			tx, err := tokenLockup.RouteRtcRewards(auth, addresses, rtc)
+			tx, err := paymentRouter.RouteRtcRewards(auth, addresses, rtcs)
 			if err != nil {
 				log.Fatal("error routing token payments")
 			} else {
@@ -325,13 +319,14 @@ func main() {
 	})
 
 
+	// for now eth payments are not done automatically and requrie someone to pus them out
 	shell.AddCmd(&ishell.Cmd{
 		Name: "construct-eth-payout-data",
 		Help: "build eth payout data for active stakers",
 		Func: func(c *ishell.Context) {
 			var addresses 	[]common.Address
 			var eths 		[]*big.Int
-			eth := big.NewInt(546900000000000)
+			eth := big.NewInt(546900000000000) // eth per person
 			c.ShowPrompt(false)
 			// prevent prompt from showing up until we're done processing
 			defer c.ShowPrompt(true)
@@ -359,8 +354,9 @@ func main() {
 	        		log.Fatal("error writing to file")
 	        	}
 			}
-			totalEthToSend := big.NewInt(int64(len(addresses)))
-			auth.Value = totalEthToSend
+			numAddresses := big.NewInt(int64(len(addresses)))
+			ethToSend := new(big.Int).Mul(numAddresses, eth)
+			auth.Value = ethToSend
 			tx, err := tokenLockup.RouteEthReward(auth, addresses, eth)
 			if err != nil {
 				log.Fatal("error routing eth payments")
