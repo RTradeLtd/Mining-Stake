@@ -136,7 +136,7 @@ func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.A
 }
 
 // WIP
-func calculatePayout(mhSec int64, diffTH int64, blockTimeSec int64, blockReward int64, ethPrice int64) (float64, error) {
+func calculatePayout(mhSec float64, diffTH float64, blockTimeSec float64, blockReward float64, ethPrice float64) (float64, error) {
 	//EarningsPerMonth = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24*30)*(EthPrice)
 	//EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)	
 	usdEarningsPerDay := float64((mhSec * 1e6 / ((diffTH / blockTimeSec)*1000*1e9))*((60/ blockTimeSec)*blockReward)*(60*24)*(ethPrice))
@@ -252,26 +252,7 @@ func main() {
     // display welcome info.
     shell.Println("RTrade Technology Stake Manager")
 
-	shell.AddCmd(&ishell.Cmd{
-	    Name: "single-payout",
-	    Help: "construct payout data for a single staker",
-	    Func: func(c *ishell.Context) {
-	        // disable the '>>>' for cleaner same line input.
-	        c.ShowPrompt(false)
-	        defer c.ShowPrompt(true) // yes, revert after login.
-	        c.Print("Address: ")
-	        address := c.ReadLine()
-	        kHash := calculateActiveHashRate(tokenLockup, common.HexToAddress(address), db)
-	        mHash := new(big.Int).Div(kHash, big.NewInt(1000))
-	        mHashInt := mHash.Int64()
-	        usdEarningsPerDay, err := calculatePayout(mHashInt, diffTH, blockTimeSec, blockReward, ethPrice)
-	        if err != nil {
-	        	log.Fatal("error parsing hash rate ", err)
-	        }
-	        c.Print("Mega hashes ", mHash)
-	        c.Print("Usd earnings per day ", usdEarningsPerDay)
-	    },
-	})
+
 
 	/*
 		TO DO:
@@ -281,8 +262,7 @@ func main() {
 		Name: "construct-payout-data",
 		Help: "build payout data for active stakers",
 		Func: func(c *ishell.Context) {
-			var addresses []common.Address
-			rtc := big.NewInt(44600000000000000)
+			rtc := new(big.Int)
 			c.ShowPrompt(false)
 			defer c.ShowPrompt(true)
 			m = iterateOverBucket(db)
@@ -292,24 +272,27 @@ func main() {
 				log.Fatal("error creating file")
 			}
 			for k, _ := range m {
-				addresses = append(addresses, k)
+				address := k
 				hash := calculateActiveHashRate(tokenLockup, k, db)
 				// since we're dealing with big numbers, we can simply just divide by 10^18, we need to do that by utilizing big int variables
 				exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 				dv := new(big.Int).Div(hash, exp)
+				mHash := float64(dv.Int64()) / float64(1000)
+				calculatePayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethprice))
 				fmt.Println(dv)
 				_, err = fmt.Fprintf(writer, "Address\t0x%x\nKhSec \t%v\n", k, dv)
 				if err != nil {
 					log.Fatal("error writing to file")
 				}
+				tx, err := tokenLockup.RouteRtcRewards(auth, address, rtc)
+				if err != nil {
+					log.Fatal("error routing token payments")
+				} else {
+					fmt.Println("token payments routed successfully")
+					fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
+				}
 			}
-			tx, err := tokenLockup.RouteRtcRewards(auth, addresses, rtc)
-			if err != nil {
-				log.Fatal("error routing token payments")
-			} else {
-				fmt.Println("token payments routed successfully")
-				fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
-			}
+
 			writer.Flush()
 		},
 	})
