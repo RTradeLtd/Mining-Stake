@@ -71,7 +71,6 @@ contract Router {
         require(_stakers.length == _payments.length);
         for (uint256 i = 0; i < _stakers.length; i++) {
             uint256 rtc = _payments[i];
-            rewards[_stakers[i]].rtcRewarded = rewards[_stakers[i]].rtcRewarded.add(rtc);
             emit RtcReward(_stakers[i], rtc);
             require(rtI.transferFrom(msg.sender, _stakers[i], rtc));
         }
