@@ -3,6 +3,7 @@ package main
 import (
 
 	"./test_router"
+	"./token_lockup"
 
 	"encoding/binary"
 	"strings"
@@ -69,6 +70,42 @@ func retrieveBucketInformationForAddress(address common.Address, db *bbolt.DB) (
 	return i
 }
 
+
+
+// this is used to calculate a users currently active hash rate so we can easily factor multiple stake payments into a single payment
+func calculateActiveHashRate(contract *TokenLockup.TokenLockup, address common.Address, db *bbolt.DB) *big.Int {
+	var one = big.NewInt(1)
+	var zero = big.NewInt(0)
+	start := big.NewInt(0)
+	end := retrieveBucketInformationForAddress(address, db)
+	khSecSum := big.NewInt(0)
+	// generate new big int, and set it to start
+	// compare i to end, if less than end (-1) continue, increment counter by 1
+	if end.Cmp(one) == 0 {
+		for i := new(big.Int).Set(start); i.Cmp(end) == -1; i.Add(i, one) {
+			_, khSec, _, _, _, enabled, err := contract.GetStakerStruct(nil, address, i)
+			if err != nil {
+				log.Fatal("error calculcating hash rate ", err)
+			}
+			if enabled == true {
+				khSecSum.Add(khSecSum, khSec)
+			}
+		}
+		return khSecSum
+	} else {
+		_, khSec, _, _, _, enabled, err := contract.GetStakerStruct(nil, address, zero)
+		if err != nil {
+			log.Fatal("error calculating active hash rate")
+		}
+		if enabled == true {
+			return khSec
+		} else {
+			return zero
+		}
+	}
+}
+
+
 // used to iterate over the  bucket, returning a map with the contents
 func iterateOverBucket(db *bbolt.DB) map[common.Address]uint64 {
 	var m = make(map[common.Address]uint64)
@@ -121,11 +158,57 @@ func main() {
 		fmt.Println(router)
 	}
 
+	fmt.Println("please enter address of lockup contract")
+	scanner.Scan()
+	address = scanner.Text()
+	tokenLockup, err := TokenLockup.NewTokenLockup(common.HexToAddress(address), client)
+	if err != nil {
+		log.Fatal("error connecting to token lockup contract")
+	}
+
 	m = iterateOverBucket(db)
 	var addresses []common.Address
 	var rtcs      []*big.Int
 	for addr, _ := range m {
 		addresses = append(addresses, addr)
-		rtcs = append(rtcs, big.NewInt(500))
+		hash := calculateActiveHashRate(tokenLockup, addr, db)
+		exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+		dv := new(big.Int).Div(hash, exp)
+		mHash := float64(dv.Int64()) / float64(1000)
+		usdEarningsPerDay := float64((mHash * 1e6 / ((float64(3146) / float64(15))*1000*1e9))*((60/ float64(15))*float64(3))*(60*24)*(float64(488)))
+		fmt.Println("Estimated USD earnigns a day ", usdEarningsPerDay)
+		ethEarningsPerDay := float64((mHash * 1e6 / ((float64(3146) / float64(15))*1000*1e9))*((60/ float64(15))*float64(3))*(60*24))
+		rtc := (usdEarningsPerDay * 0.1) / 0.125
+		rtcFloat := float64(rtc)
+		rtcInt := FloatToBigInt(rtcFloat)
+		fmt.Println("estimated eth earnigns a day ", ethEarningsPerDay)
+		fmt.Println("rtc earnings a day ", rtcInt)
+		fmt.Printf("Hash rate for 0x%x\t%v\n", addr, mHash)
+		rtcs = append(rtcs, rtcInt)
 	}
+	if len(rtcs) != len(addresses) {
+		log.Fatal("not equal rtcs  || addresses")
+	}
+	tx, err := router.TestRouteNoRequire(auth, addresses, rtcs)
+	if err != nil {
+		log.Fatal("error sending transaction ", err)
+	}
+	fmt.Printf("transactin hash 0x%x\n", tx.Hash())
 } 
+
+func FloatToBigInt(val float64) *big.Int {
+    bigval := new(big.Float)
+    bigval.SetFloat64(val)
+    // Set precision if required.
+    // bigval.SetPrec(64)
+
+    coin := new(big.Float)
+    coin.SetInt(big.NewInt(1000000000000000000))
+
+    bigval.Mul(bigval, coin)
+
+    result := new(big.Int)
+    bigval.Int(result) // store converted number in result
+
+    return result
+}

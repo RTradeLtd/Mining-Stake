@@ -270,7 +270,7 @@ func main() {
 	diffTH := float64(3088)
 	currentBlockTimestamp := currentBlock.Timestamp
 	previousBlockTimestamp := previousBlock.Timestamp
-	blockTimeSec := currentBlockTimestamp - previousBlockTimestamp
+	blockTimeSec := float64(currentBlockTimestamp - previousBlockTimestamp)
 	blockReward := float64(3)
 	ethPrice := float64(419)
 
@@ -280,9 +280,9 @@ func main() {
 		// lets start with the eth payment
 		var addresses 	[]common.Address
 		var eths 		[]*big.Int
-		eth := big.NewInt(5000)
+		var totalEth    uint64
 		m = iterateOverBucket(db)
-		file, err := os.Create("eth.txt")
+		file, err := os.Create("eth_payments.txt")
 		writer := bufio.NewWriter(file)
 		if err != nil {
 			log.Fatal("error creating file")
@@ -294,31 +294,30 @@ func main() {
 			exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 	        dv := new(big.Int).Div(hash, exp)
 	        mHash := float64(dv.Int64()) / float64(1000)
-        	ethEarningsPerDay, err := calculateEthEarnings(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward))
-        	ethEarningsPerDayInt := int64(ethEarningsPerDay)
-        	ethEarningsPerDayBigInt := big.NewInt(ethEarningsPerDayInt)
-        	if err != nil {
-        		fmt.Println("error reading eth earnings ", err)
-        	}
-	        eths = append(eths, ethEarningsPerDayBigInt)
-	        _, err = fmt.Println(writer, "Address\t0x%x\nmHSec\t%v\neth per day\t%v\n", k, mHash, ethEarningsPerDay)
+	        //usdEarningsPerDay, err := calculateUsdEarnings(mHash, diffTH, blockTimeSec, blockReward, ethPrice)
+	        ethEarningsPerDay, err := calculateEthEarnings(mHash, diffTH, blockTimeSec, blockReward)
+   			ethEarningsInt := FloatToBigInt(float64(ethEarningsPerDay))
+   			ethEarningsIntWeek := new(big.Int).Mul(ethEarningsInt, big.NewInt(7))
+	        eths = append(eths, ethEarningsIntWeek)
+	        totalEth = totalEth + ethEarningsInt.Uint64()
+	        _, err = fmt.Println(writer, "Address   0x%x\tmHSec %v\teth per day %v\n", k, mHash, ethEarningsPerDay)
 	        if err != nil {
 	        	log.Fatal("error writing to file")
 	        }
-			numAddresses := big.NewInt(int64(len(addresses)))
-			totalEthToSend := new(big.Int).Mul(numAddresses, eth)
-			auth.Value = totalEthToSend
-			tx, err := paymentRouter.RouteEthReward(auth, addresses, eths)
-			if err != nil {
-				log.Fatal("error routing eth payments")
-			} else {
-				fmt.Println("Eth payments routed successfully")
-				fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
-				sendEmail("eth")
-			}
-			writer.Flush()
+	    }
+		totalEthToSend := big.NewInt(int64(totalEth))
+		auth.Value = totalEthToSend
+		tx, err := paymentRouter.RouteEthReward(auth, addresses, eths)
+		if err != nil {
+			log.Fatal("error routing eth payments")
+		} else {
+			fmt.Println("Eth payments routed successfully")
+			fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
+			sendEmail("eth")
 		}
+		writer.Flush()
 	}
+
 
 	var m = make(map[common.Address]uint64)
 	var addresses 	[]common.Address
@@ -329,18 +328,19 @@ func main() {
 		log.Fatal("error creating file")
 	}
 	writer := bufio.NewWriter(file)
-	for k, _ := range m {
-		addresses = append(addresses, k)
-		address := k
-		hash := calculateActiveHashRate(tokenLockup, address, db)
+	for addr, _ := range m {
+		addresses = append(addresses, addr)
+		hash := calculateActiveHashRate(tokenLockup, addr, db)
 		exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	    dv := new(big.Int).Div(hash, exp)
-	    mHash := float64(dv.Int64()) / float64(1000)
-		usdEarningsPerDay, err := calculateUsdEarnings(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethPrice))
-	    rtcPerDay := (usdEarningsPerDay * 0.1) / 0.125
-	    rtcPerDayInt := big.NewInt(int64(rtcPerDay))
-	    rtcs = append(rtcs, rtcPerDayInt)
-		_, err = fmt.Fprintf(writer, "Address\t0x%x\nmHSec \t%v\nrtc per day\t%v\n", k, mHash, rtcPerDay)
+		dv := new(big.Int).Div(hash, exp)
+		mHash := float64(dv.Int64()) / float64(1000)
+		usdEarningsPerDay, err := calculateUsdEarnings(mHash, diffTH, blockTimeSec, blockReward, ethPrice)
+		fmt.Println("Estimated USD earnigns a day ", usdEarningsPerDay)
+		rtc := (usdEarningsPerDay * 0.1) / 0.125
+		rtcFloat := float64(rtc)
+		rtcInt := FloatToBigInt(rtcFloat)
+		rtcs = append(rtcs, rtcInt)
+		_, err = fmt.Fprintf(writer, "Address\t0x%x\nmHSec \t%v\nrtc per day\t%v\n", addr, mHash, rtcInt)
 		if err != nil {
 			log.Fatal("error writing to file")
 		}
@@ -355,4 +355,21 @@ func main() {
 	}
 	writer.Flush()
 
+}
+
+func FloatToBigInt(val float64) *big.Int {
+    bigval := new(big.Float)
+    bigval.SetFloat64(val)
+    // Set precision if required.
+    // bigval.SetPrec(64)
+
+    coin := new(big.Float)
+    coin.SetInt(big.NewInt(1000000000000000000))
+
+    bigval.Mul(bigval, coin)
+
+    result := new(big.Int)
+    bigval.Int(result) // store converted number in result
+
+    return result
 }
