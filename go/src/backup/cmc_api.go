@@ -53,10 +53,30 @@ func main() {
 	}
 
 
-	responseData, err := ioutil.ReadAll(response.Body)
+	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Fatal("error reading request ", err)
+		log.Fatal("error reading response ", err)
 	}
-	json.Unmarshal(responseData, &responseObject)
-	fmt.Println(responseData)
+	var decode []Response
+	err = json.Unmarshal(body, &decode)
+	if err != nil {
+		log.Fatal("error unmarshling json ", err)
+	}
+	fmt.Println(decode)
 }
+/*
+    body, err := ioutil.ReadAll(res.Body)
+    if err != nil {
+        panic(err.Error())
+    }
+
+    s, err := getStations([]byte(body))
+func getStations(body []byte) (*StationAPIResponse, error) {
+    var s = new(StationAPIResponse)
+    err := json.Unmarshal(body, &s)
+    if(err != nil){
+        fmt.Println("whoops:", err)
+    }
+    return s, err
+}
+*/
