@@ -44,7 +44,7 @@ type Response struct {
 	LastUpdate string `json:"last_updated"`
 }
 
-var responseObject Response
+
 
 func main() {
 	response, err := http.Get("https://api.coinmarketcap.com/v1/ticker/ethereum/")
@@ -58,25 +58,16 @@ func main() {
 		log.Fatal("error reading response ", err)
 	}
 	var decode []Response
+	//var responseObject Response
 	err = json.Unmarshal(body, &decode)
 	if err != nil {
 		log.Fatal("error unmarshling json ", err)
 	}
-	fmt.Println(decode)
-}
-/*
-    body, err := ioutil.ReadAll(res.Body)
-    if err != nil {
-        panic(err.Error())
-    }
 
-    s, err := getStations([]byte(body))
-func getStations(body []byte) (*StationAPIResponse, error) {
-    var s = new(StationAPIResponse)
-    err := json.Unmarshal(body, &s)
-    if(err != nil){
-        fmt.Println("whoops:", err)
-    }
-    return s, err
+	fmt.Printf("%+v\n", decode)
+	fmt.Println(decode[0].PriceUsd)
+
 }
-*/
+
+
+//{ethereum Ethereum ETH 2 491.749 0.0624859 2645020000.0 48577384610.0 98784918.0 98784918.0  1.59 13.35 30.15 1523588660}

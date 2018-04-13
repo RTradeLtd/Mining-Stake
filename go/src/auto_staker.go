@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"strings"
 	"math/big"
+	"net/http"
+	"io/ioutil"
+	"encoding/json"
 	"encoding/binary"
+	"strconv"
 	"bufio"
 	"os"
 	"time"
@@ -28,6 +32,26 @@ import (
 // please change this before compiling for production
 const key = `{"address":"069ba77207ad40b7d386f8e2979a9337a36f991c","crypto":{"cipher":"aes-128-ctr","ciphertext":"b1218c0a8d354cddcb288d021a1e76a5a8617e32b78cff0d9769b6b663851516","cipherparams":{"iv":"f1f1e9461f2e17c3ca6866173b953860"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"b2aaac5ac70f95d81b41ca1042e6ddbb1b73f456ba03c6feb8d1eda7137b571b"},"mac":"4e1eadd303f63936806808059dc1fc3be0a9706de50e5b0f824e1a4bd1310e87"},"id":"54fe5587-3f4f-45b6-b895-d905275faaf5","version":3}`
 const password = "password123"
+
+
+type Response struct {
+	Id string `json:"id"`
+	Name string `json:"name"`
+	Symbol string `json:"symbol"`
+	Rank string `json:"rank"`
+	PriceUsd string `json:"price_usd"`
+	PriceBtc string `json:"price_btc"`
+	TwentyFourHrVolume string `json:"24h_volume_usd"`
+	MarketCapUsd string `json:"market_cap_usd"`
+	AvailableSupply string `json:"available_supply"`
+	TotalSupply string `json:"total_supply"`
+	MaxSupply string `json:"null"`
+	PercentChange1h string `json:"percent_change_1h"`
+	PercentChange24h string `json:"percent_change_24h"`
+	PercentChange7d string `json:"percent_change_7d"`
+	LastUpdate string `json:"last_updated"`
+}
+
 
 func bBoltSetup(dbPath string) *bbolt.DB {
 	// setup the bbolt database
@@ -225,6 +249,27 @@ func sendEmail(_coin string) {
 	}
 }
 
+func parseCmcApi() (float64, error) {
+	response, err := http.Get("https://api.coinmarketcap.com/v1/ticker/ethereum/")
+	if err != nil {
+		log.Fatal("error reading website ", err)
+	}
+
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal("error reading response ", err)
+	}
+	var decode []Response
+	//var responseObject Response
+	err = json.Unmarshal(body, &decode)
+	if err != nil {
+		log.Fatal("error unmarshling json ", err)
+	}
+
+	price, err := strconv.ParseFloat(decode[0].PriceUsd, 64)
+	return price, err
+}
 
 func main() {
 
@@ -272,7 +317,10 @@ func main() {
 	previousBlockTimestamp := previousBlock.Timestamp
 	blockTimeSec := float64(currentBlockTimestamp - previousBlockTimestamp)
 	blockReward := float64(3)
-	ethPrice := float64(419)
+	ethPrice, err := parseCmcApi()
+	if err != nil {
+		log.Fatal("erorr parsing eth price")
+	}
 
 	if weekdayString == "Friday" {
 		var m = make(map[common.Address]uint64)
