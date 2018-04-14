@@ -9,8 +9,11 @@ import (
 	"bufio"
 	"os"
 	"strconv"
-
+	"net/http"
+	"io/ioutil"
+	"encoding/json"
 	"github.com/howeyc/gopass"
+	"github.com/onrik/ethrpc"
 
 	// bbolt will be used to store active stakers
 	bbolt "github.com/coreos/bbolt"
@@ -19,13 +22,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
     "github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-    "github.com/ethereum/go-ethereum/rpc"
+
     //"github.com/ethereum/go-ethereum/core/types"
 	//"github.com/ethereum/go-ethereum/ethstats"
 	//"github.com/sendgrid/sendgrid-go"
 	//"github.com/sendgrid/sendgrid-go/helpers/mail"
 	
-	"github.com/RTradeLtd/Mining-Stake/token_lockup"
+	"./token_lockup"
 )
 
 //const key = `{"address":"d72f0d88384c05c3d95c870ba98ac2d606939c65","crypto":{"cipher":"aes-128-ctr","ciphertext":"589a88ccbdaa312595343c907e944c8b9d9e133d443b43d4efa71c6c7cea26d0","cipherparams":{"iv":"4429d785f61dd7d37d7813a8a422d941"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"f92dbdb8c2c4686a839978d9dab36601a2e950d001b6d7131dd9a22c68f32da1"},"mac":"9037da8e700215e1d79043a4fcac847768d27e28dfcd3ce16f094eb1d837f1e1"},"id":"6472fa0e-80e4-475a-8f35-ede98c37641e","version":3}`
@@ -152,14 +155,6 @@ func buildPayoutData(contract *TokenLockup.TokenLockup, addresses []common.Addre
 	}
 }
 
-// used to create an RPC connection with the block chain
-func establishRpcConnection(rpcUrl string) *rpc.Client {
-	rpcClient, err := rpc.Dial(rpcUrl)
-	if err != nil {
-		log.Fatal("error establishing RPC connection ", err)
-	}
-	return rpcClient
-}
 
 // authenticates with the blockchain, and the staking contract
 func authenticateWithContract()  (*ethclient.Client, *bind.TransactOpts, *TokenLockup.TokenLockup) {
@@ -201,6 +196,53 @@ func authenticateWithContract()  (*ethclient.Client, *bind.TransactOpts, *TokenL
 	return client, auth, tokenLockup
 }
 
+// used to create an RPC connection with the block chain
+func establishRpcConnection(rpcUrl string) *ethrpc.EthRPC {
+	rpcClient := ethrpc.New(rpcUrl)
+	return rpcClient
+}
+
+func parseCmcApi() float64 {
+
+	response, err := http.Get("https://api.coinmarketcap.com/v1/ticker/ethereum/")
+	if err != nil {
+		log.Fatal("error reading website ", err)
+	}
+
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal("error reading response ", err)
+	}
+	var decode []Response
+	err = json.Unmarshal(body, &decode)
+	if err != nil {
+		log.Fatal("error unmarshling json ", err)
+	}
+
+	f, _ := strconv.ParseFloat(decode[0].PriceUsd, 64)
+
+	return f
+}
+
+type Response struct {
+	Id string `json:"id"`
+	Name string `json:"name"`
+	Symbol string `json:"symbol"`
+	Rank string `json:"rank"`
+	PriceUsd string `json:"price_usd"`
+	PriceBtc string `json:"price_btc"`
+	TwentyFourHrVolume string `json:"24h_volume_usd"`
+	MarketCapUsd string `json:"market_cap_usd"`
+	AvailableSupply string `json:"available_supply"`
+	TotalSupply string `json:"total_supply"`
+	MaxSupply string `json:"null"`
+	PercentChange1h string `json:"percent_change_1h"`
+	PercentChange24h string `json:"percent_change_24h"`
+	PercentChange7d string `json:"percent_change_7d"`
+	LastUpdate string `json:"last_updated"`
+}
+
 func main() {
 	// create map to store stake data
 	var m = make(map[common.Address]uint64)
@@ -215,35 +257,43 @@ func main() {
 	fmt.Println("establishing connection with contract")
 	_, auth, tokenLockup := authenticateWithContract()
 
-	scanner := bufio.NewScanner(os.Stdin)
+	rpcClient := establishRpcConnection("http://127.0.0.1:8545")
 
-	fmt.Println("Please enter network difficulty in TH")
-	scanner.Scan()
-	diffTH, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	//scanner := bufio.NewScanner(os.Stdin)
+
+	currentBlockNum, err := rpcClient.EthBlockNumber()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error reading block num ", err)
 	}
 
-	fmt.Println("Please enter block time in seconds")
-	scanner.Scan()
-	blockTimeSec, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	previousBlockNum := currentBlockNum - 1
+
+	// now that we have the latest and previous block, we can go about
+	// parsing the data
+
+	currentBlock, err := rpcClient.EthGetBlockByNumber(currentBlockNum, false)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error retrieving current  block headers ",err)
 	}
 
-	fmt.Println("Please enter blcok reward")
-	scanner.Scan()
-	blockReward, err := strconv.ParseInt(scanner.Text(), 0, 64)
+	previousBlock, err := rpcClient.EthGetBlockByNumber(previousBlockNum, false)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error retrieving previous block headers ", err)
 	}
 
-	fmt.Println("Please enter eth price in usd")
-	scanner.Scan()
-	ethPrice, err := strconv.ParseInt(scanner.Text(), 0, 64)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fmt.Println("printing block headers")
+	fmt.Println(currentBlock, previousBlock)
+
+
+	// big.Int type
+	//diffTH_ := currentBlock.Difficulty
+	//diffThInt := diffTH_.Int64()
+	diffTH := float64(3200)
+	currentBlockTimestamp := currentBlock.Timestamp
+	previousBlockTimestamp := previousBlock.Timestamp
+	blockTimeSec := currentBlockTimestamp - previousBlockTimestamp
+	blockReward := float64(3)
+	ethPrice := parseCmcApi()
 	
 	// used to create a new shell
 	fmt.Println("establishing shell")
@@ -262,7 +312,6 @@ func main() {
 		Name: "construct-payout-data",
 		Help: "build payout data for active stakers",
 		Func: func(c *ishell.Context) {
-			rtc := new(big.Int)
 			c.ShowPrompt(false)
 			defer c.ShowPrompt(true)
 			m = iterateOverBucket(db)
@@ -272,21 +321,28 @@ func main() {
 				log.Fatal("error creating file")
 			}
 			for k, _ := range m {
-				address := k
+				var address []common.Address
+				address = append(address, k)
 				hash := calculateActiveHashRate(tokenLockup, k, db)
 				// since we're dealing with big numbers, we can simply just divide by 10^18, we need to do that by utilizing big int variables
 				exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 				dv := new(big.Int).Div(hash, exp)
 				mHash := float64(dv.Int64()) / float64(1000)
-				calculatePayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethprice))
-				fmt.Println(dv)
-				_, err = fmt.Fprintf(writer, "Address\t0x%x\nKhSec \t%v\n", k, dv)
+				usdEarnings, _ := calculatePayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethPrice))
+				percentUsd := new(big.Float).Mul(big.NewFloat(usdEarnings), big.NewFloat(0.1))
+				percentUsdFloat, _ := percentUsd.Float64()
+				fmt.Println("USD Float ", percentUsdFloat)
+				rtcFloat := percentUsdFloat / 0.125
+				rtc := FloatToBigInt(rtcFloat)
+				fmt.Println("rtc ", rtc)
+				_, err = fmt.Fprintf(writer, "Address\t0x%x\nKhSec \t%v\nRTC \t%v\n", k, dv, rtc)
 				if err != nil {
 					log.Fatal("error writing to file")
 				}
+				writer.Flush()
 				tx, err := tokenLockup.RouteRtcRewards(auth, address, rtc)
 				if err != nil {
-					log.Fatal("error routing token payments")
+					log.Fatal("error routing token payments ", err)
 				} else {
 					fmt.Println("token payments routed successfully")
 					fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
@@ -310,4 +366,22 @@ func main() {
     // run shell
     shell.Run()
 
+}
+
+
+func FloatToBigInt(val float64) *big.Int {
+    bigval := new(big.Float)
+    bigval.SetFloat64(val)
+    // Set precision if required.
+    // bigval.SetPrec(64)
+
+    coin := new(big.Float)
+    coin.SetInt(big.NewInt(1000000000000000000))
+
+    bigval.Mul(bigval, coin)
+
+    result := new(big.Int)
+    bigval.Int(result) // store converted number in result
+
+    return result
 }

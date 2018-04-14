@@ -2,7 +2,6 @@ package main
 
 import (
 
-	"./test_router"
 	"./token_lockup"
 	"net/http"
 	"io/ioutil"
@@ -15,11 +14,12 @@ import (
 	"os"
 	"fmt"
 	"log"
-
+	"time"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-
+	"github.com/howeyc/gopass"
+	"github.com/onrik/ethrpc"
 	bbolt "github.com/coreos/bbolt"
 
 )
@@ -176,70 +176,167 @@ func parseCmcApi() float64 {
 	return f
 }
 
-func main() {
+func calculateUsdPayout(mhSec float64, diffTH float64, blockTimeSec float64, blockReward float64, ethPrice float64) (float64, error) {
+	//EarningsPerMonth = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24*30)*(EthPrice)
+	//EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)	
+	usdEarningsPerDay := float64((mhSec * 1e6 / ((diffTH / blockTimeSec)*1000*1e9))*((60/ blockTimeSec)*blockReward)*(60*24)*(ethPrice))
+	return usdEarningsPerDay, nil
+}
 
-	db := bBoltSetup("stake.db")
+func calculateEthPayout(mhSec float64, diffTH float64, blockTimeSec float64, blockReward float64) (float64, error) {
+	//EarningsPerMonth = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24*30)*(EthPrice)
+	//EarningsPerDay = (UserHashMh * 1e6 / ((difficultyTH / BlockTimeSec)*1000*1e9))*((60/ BlockTimeSec)*BlockReward)*(60*24)*(EthPrice)	
+	usdEarningsPerDay := float64((mhSec * 1e6 / ((diffTH / blockTimeSec)*1000*1e9))*((60/ blockTimeSec)*blockReward)*(60*24))
+	return usdEarningsPerDay, nil
+}
 
-	password := "password123"
 
+// authenticates with the blockchain, and the staking contract
+func authenticateWithContract()  (*ethclient.Client, *bind.TransactOpts, *TokenLockup.TokenLockup) {
+	fmt.Println("initiating ipc connection")
 	client, err := ethclient.Dial("/home/solidity/.ethereum/rinkeby/geth.ipc")
 	if err != nil {
-		log.Fatal("error connecting to network ", err)
-	}
-
-	auth, err := bind.NewTransactor(strings.NewReader(key), password)
-	if err != nil {
-		log.Fatal("error connecting to network")
+		log.Fatal("error connecting to blockchain ", err)
+	} else {
+		fmt.Println("ipc connection successfully established")
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("please enter address of router contract")
+	fmt.Println("please enter raw contents of json key file")
 	scanner.Scan()
-	address := scanner.Text()
+	key := scanner.Text()
 
-	router, err := TestRouter.NewTestRouter(common.HexToAddress(address), client)
+	fmt.Println("enter password to unlock key")
+	pass, err := gopass.GetPasswd()
 	if err != nil {
-		log.Fatal("error connecting to router ", err)
+		log.Fatal("error reading password")
+	}
+	fmt.Println("unlocking eth account")
+	auth, err := bind.NewTransactor(strings.NewReader(key), string(pass))
+	if err != nil {
+		log.Fatalf("error unlocking account")
 	} else {
-		fmt.Println(router)
+		fmt.Println("unlock successful", auth)
 	}
 
-	fmt.Println("please enter address of lockup contract")
-	scanner.Scan()
-	address = scanner.Text()
-	tokenLockup, err := TokenLockup.NewTokenLockup(common.HexToAddress(address), client)
+	tokenLockup, err := TokenLockup.NewTokenLockup(common.HexToAddress("0x5Ae6C285eeB2e5a9234956cbCf9dea2C97C3A773"), client)	
+
+	minStake, err := tokenLockup.MINSTAKE(nil)
 	if err != nil {
-		log.Fatal("error connecting to token lockup contract")
+		log.Fatal("error connecting to contract", err)
+	} else {
+		fmt.Println("contract connection successful, min stake ", minStake)
 	}
 
+	return client, auth, tokenLockup
+}
+
+// used to create an RPC connection with the block chain
+func establishRpcConnection(rpcUrl string) *ethrpc.EthRPC {
+	rpcClient := ethrpc.New(rpcUrl)
+	return rpcClient
+}
+
+func main() {
+
+	// setup rpc client connection
+	fmt.Println("setting up rpc client")
+	// setup connection to bolt database
+	fmt.Println("setting up bolt database")
+	db := bBoltSetup("stake.db")
+
+	// make sure we can interact with the contract
+	fmt.Println("establishing connection with contract")
+	_, auth, tokenLockup := authenticateWithContract()
+
+	rpcClient := establishRpcConnection("http://127.0.0.1:8545")
+
+		currentBlockNum, err := rpcClient.EthBlockNumber()
+	if err != nil {
+		log.Fatal("error reading block num ", err)
+	}
+
+	previousBlockNum := currentBlockNum - 1
+
+	// now that we have the latest and previous block, we can go about
+	// parsing the data
+
+	currentBlock, err := rpcClient.EthGetBlockByNumber(currentBlockNum, false)
+	if err != nil {
+		log.Fatal("error retrieving current  block headers ",err)
+	}
+
+	previousBlock, err := rpcClient.EthGetBlockByNumber(previousBlockNum, false)
+	if err != nil {
+		log.Fatal("error retrieving previous block headers ", err)
+	}
+
+	fmt.Println("printing block headers")
+	fmt.Println(currentBlock, previousBlock)
+	// big.Int type
+	//diffTH_ := currentBlock.Difficulty
+	//diffThInt := diffTH_.Int64()
+	diffTH := float64(3200)
+	currentBlockTimestamp := currentBlock.Timestamp
+	previousBlockTimestamp := previousBlock.Timestamp
+	blockTimeSec := currentBlockTimestamp - previousBlockTimestamp
+	blockReward := float64(3)
+	ethPrice := parseCmcApi()
+	
+
+	currDate := time.Now()
+	weekday := currDate.Weekday()
+	// calculate eth payments
+	if weekday.String() == "Saturday" {
+		var m = make(map[common.Address]uint64)
+		m = iterateOverBucket(db)
+		for addr, _ := range m {
+			var address []common.Address
+			address = append(address, addr)
+			hash := calculateActiveHashRate(tokenLockup, addr, db)
+			exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+			dv := new(big.Int).Div(hash, exp)
+			mHash := float64(dv.Int64()) / float64(1000)
+			ethEarnings, _ := calculateEthPayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward))
+			ethEarningsBig := FloatToBigInt(ethEarnings)
+			weekEarnings := new(big.Int).Mul(ethEarningsBig, big.NewInt(7))
+			auth.Value = weekEarnings
+			tx, err := tokenLockup.RouteEthReward(auth, address, weekEarnings)
+			if err != nil {
+				log.Fatal("error sending token ", err)
+			} 
+			fmt.Printf("TX Hash 0x%x\n", tx.Hash())
+		}
+	}
+	log.Fatal()
+	auth.Value = big.NewInt(0)
+
+	var m = make(map[common.Address]uint64)
 	m = iterateOverBucket(db)
-	var addresses []common.Address
-	var rtcs      []*big.Int
-	for addr, _ := range m {
-		addresses = append(addresses, addr)
-		hash := calculateActiveHashRate(tokenLockup, addr, db)
+	for k, _ := range m {
+		var address []common.Address
+		address = append(address, k)
+		hash := calculateActiveHashRate(tokenLockup, k, db)
+		// since we're dealing with big numbers, we can simply just divide by 10^18, we need to do that by utilizing big int variables
 		exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 		dv := new(big.Int).Div(hash, exp)
 		mHash := float64(dv.Int64()) / float64(1000)
-		usdEarningsPerDay := float64((mHash * 1e6 / ((float64(3146) / float64(15))*1000*1e9))*((60/ float64(15))*float64(3))*(60*24)*(float64(488)))
-		fmt.Println("Estimated USD earnigns a day ", usdEarningsPerDay)
-		ethEarningsPerDay := float64((mHash * 1e6 / ((float64(3146) / float64(15))*1000*1e9))*((60/ float64(15))*float64(3))*(60*24))
-		rtc := (usdEarningsPerDay * 0.1) / 0.125
-		rtcFloat := float64(rtc)
-		rtcInt := FloatToBigInt(rtcFloat)
-		fmt.Println("estimated eth earnigns a day ", ethEarningsPerDay)
-		fmt.Println("rtc earnings a day ", rtcInt)
-		fmt.Printf("Hash rate for 0x%x\t%v\n", addr, mHash)
-		rtcs = append(rtcs, rtcInt)
+		usdEarnings, _ := calculateUsdPayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethPrice))
+		percentUsd := new(big.Float).Mul(big.NewFloat(usdEarnings), big.NewFloat(0.1))
+		percentUsdFloat, _ := percentUsd.Float64()
+		fmt.Println("USD Float ", percentUsdFloat)
+		rtcFloat := percentUsdFloat / 0.125
+		rtc := FloatToBigInt(rtcFloat)
+		fmt.Println("rtc ", rtc)
+		tx, err := tokenLockup.RouteRtcRewards(auth, address, rtc)
+		if err != nil {
+			log.Fatal("error routing token payments ", err)
+		} else {
+			fmt.Println("token payments routed successfully")
+			fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
+		}
 	}
-	if len(rtcs) != len(addresses) {
-		log.Fatal("not equal rtcs  || addresses")
-	}
-	tx, err := router.TestRouteNoRequire(auth, addresses, rtcs)
-	if err != nil {
-		log.Fatal("error sending transaction ", err)
-	}
-	fmt.Printf("transactin hash 0x%x\n", tx.Hash())
+
 } 
 
 func FloatToBigInt(val float64) *big.Int {
