@@ -78,7 +78,7 @@ func (b *BoltDB) RetrieveStakeIDInformationForAddress(address common.Address) *b
 }
 
 // FetchStakeIDs used to build a list of all known stakers and their IDs
-func (b *BoltDB) FetchStakeIDs(db *bbolt.DB) map[common.Address]uint64 {
+func (b *BoltDB) FetchStakeIDs() map[common.Address]uint64 {
 	var m = make(map[common.Address]uint64)
 	b.db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte(b.StakeIDBucketName))
