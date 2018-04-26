@@ -8,7 +8,7 @@ import (
 
 // Used to hold response data from cmc
 type Response struct {
-	Id                 string `json:"id"`
+	ID                 string `json:"id"`
 	Name               string `json:"name"`
 	Symbol             string `json:"symbol"`
 	Rank               string `json:"rank"`
