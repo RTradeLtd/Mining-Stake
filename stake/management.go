@@ -5,10 +5,19 @@ import (
 	"math/big"
 
 	"github.com/RTradeLtd/Mining-Stake/database"
+	"github.com/RTradeLtd/Mining-Stake/token_lockup"
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func CalculateActiveHashRate(address common.Address, b *database.BoltDB) *big.Int {
+// Contract is a general purpose struct to interface with the
+// token lockup contract
+type Contract struct {
+	ContractHandler *TokenLockup.TokenLockup
+}
+
+// CalculateActiveHashRate used to calculate active hash rate for a staker
+// active hashrate is defined as the combined hash rate of all actively enabled stakes
+func (c *Contract) CalculateActiveHashRate(address common.Address, b *database.BoltDB) *big.Int {
 	var one = big.NewInt(1)
 	var zero = big.NewInt(0)
 	start := big.NewInt(0)
@@ -18,7 +27,7 @@ func CalculateActiveHashRate(address common.Address, b *database.BoltDB) *big.In
 	// compare i to end, if less than end (-1) continue, increment counter by 1
 	if end.Cmp(one) == 0 {
 		for i := new(big.Int).Set(start); i.Cmp(end) == -1; i.Add(i, one) {
-			_, khSec, _, _, _, enabled, err := contract.GetStakerStruct(nil, address, i)
+			_, khSec, _, _, _, enabled, err := c.ContractHandler.GetStakerStruct(nil, address, i)
 			if err != nil {
 				log.Fatal("error calculcating hash rate ", err)
 			}
@@ -28,7 +37,7 @@ func CalculateActiveHashRate(address common.Address, b *database.BoltDB) *big.In
 		}
 		return khSecSum
 	} else {
-		_, khSec, _, _, _, enabled, err := contract.GetStakerStruct(nil, address, zero)
+		_, khSec, _, _, _, enabled, err := c.ContractHandler.GetStakerStruct(nil, address, zero)
 		if err != nil {
 			log.Fatal("error calculating active hash rate")
 		}
