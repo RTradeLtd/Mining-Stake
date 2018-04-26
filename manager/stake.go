@@ -5,8 +5,6 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/RTradeLtd/Mining-Stake/database"
-	"github.com/RTradeLtd/Mining-Stake/token_lockup"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -14,39 +12,38 @@ import (
 	Contains methods related to stake management
 */
 
-// Manager is a general purpose struct to interface with the
-// token lockup contract
-type Manager struct {
-	ContractHandler *TokenLockup.TokenLockup
-	Bolt            *database.BoltDB
-	Block           *BlockStatistics
-}
-
-// BlockStatistics hold block related statistics
-type BlockStatistics struct {
-	DiffTh       float64
-	BlockTimeSec float64
-	BlockReward  float64
-	EthPrice     float64
-}
-
 // ParseBlockStatistics is used to retrieve block params to
 // allow us to calculate payout data
-func (m *Manager) ParseBlockStatistics() {
+func (m *Manager) ParseBlockStatistics() error {
 	// currently we do testing on PoA networks
 	// so we need to mimic a difficulty close to main net
 	diffTh := float64(3200)
 	ethUsd := m.RetrieveEthUsdPrice()
-	currentBlockTimeStamp := float64(14) // temporary until we implement the rpc methods
-	previousBlockTimeStamp := float64(0) // temporary until we implement rpc
-	blockTimeSec := currentBlockTimeStamp - previousBlockTimeStamp
+	currentBlockNum, err := m.RPC.EthBlockNumber()
+	if err != nil {
+		return err
+	}
+	previousBlockNum := currentBlockNum - 1
+	currentBlock, err := m.RPC.EthGetBlockByNumber(currentBlockNum, false)
+	if err != nil {
+		return err
+	}
+	previousBlock, err := m.RPC.EthGetBlockByNumber(previousBlockNum, false)
+	if err != nil {
+		return err
+	}
+
+	currentBlockTimestamp := currentBlock.Timestamp
+	previousBlockTimestamp := previousBlock.Timestamp
+	blockTimeSec := currentBlockTimestamp - previousBlockTimestamp
 	blockReward := float64(3) // this doesnt change often so we hard code
 	m.Block = &BlockStatistics{
 		DiffTh:       diffTh,
-		BlockTimeSec: blockTimeSec,
+		BlockTimeSec: float64(blockTimeSec),
 		BlockReward:  blockReward,
 		EthPrice:     ethUsd,
 	}
+	return nil
 }
 
 // CalculateActiveHashRate used to calculate active hash rate for a staker
@@ -90,10 +87,12 @@ func (m *Manager) CalculateUsdPayout(mhSec float64, diffTH float64, blockTimeSec
 }
 
 // ConstructRtcPayoutData is used to build payout rtc stake payout data
+// current implementation routes to one address at a time
+// to fix this we will need to rework some of the logic
 func (m *Manager) ConstructRtcPayoutData() {
 	var stakerMap = make(map[common.Address]uint64)
 	stakerMap = m.Bolt.FetchStakeIDs()
-	for k, _ := range stakerMap {
+	for k := range stakerMap {
 		var address []common.Address
 		address = append(address, k)
 		hash := m.CalculateActiveHashRate(k)
@@ -101,19 +100,13 @@ func (m *Manager) ConstructRtcPayoutData() {
 		exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 		dv := new(big.Int).Div(hash, exp)
 		mHash := float64(dv.Int64()) / float64(1000)
-		usdEarnings := m.CalculateUsdPayout(mHash, float64(diffTH), float64(blockTimeSec), float64(blockReward), float64(ethPrice))
+		usdEarnings := m.CalculateUsdPayout(mHash, m.Block.DiffTh, m.Block.BlockTimeSec, m.Block.BlockReward, m.Block.EthPrice)
 		percentUsd := new(big.Float).Mul(big.NewFloat(usdEarnings), big.NewFloat(0.1))
 		percentUsdFloat, _ := percentUsd.Float64()
 		fmt.Println("USD Float ", percentUsdFloat)
 		rtcFloat := percentUsdFloat / 0.125
 		rtc := FloatToBigInt(rtcFloat)
-		fmt.Println("rtc ", rtc)
-		_, err = fmt.Fprintf(writer, "Address\t0x%x\nKhSec \t%v\nRTC \t%v\n", k, dv, rtc)
-		if err != nil {
-			log.Fatal("error writing to file")
-		}
-		writer.Flush()
-		tx, err := tokenLockup.RouteRtcRewards(auth, address, rtc)
+		tx, err := m.ContractHandler.RouteRtcRewards(auth, address, rtc)
 		if err != nil {
 			log.Fatal("error routing token payments ", err)
 		} else {

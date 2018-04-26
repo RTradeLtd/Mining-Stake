@@ -1,5 +1,11 @@
 package manager
 
+import (
+	"github.com/RTradeLtd/Mining-Stake/database"
+	"github.com/RTradeLtd/Mining-Stake/token_lockup"
+	"github.com/onrik/ethrpc"
+)
+
 // Used to hold response data from cmc
 type Response struct {
 	Id                 string `json:"id"`
@@ -17,4 +23,21 @@ type Response struct {
 	PercentChange24h   string `json:"percent_change_24h"`
 	PercentChange7d    string `json:"percent_change_7d"`
 	LastUpdate         string `json:"last_updated"`
+}
+
+// Manager is a general purpose struct to interface with the
+// token lockup contract
+type Manager struct {
+	ContractHandler *TokenLockup.TokenLockup
+	Bolt            *database.BoltDB
+	Block           *BlockStatistics
+	RPC             *ethrpc.EthRPC
+}
+
+// BlockStatistics hold block related statistics
+type BlockStatistics struct {
+	DiffTh       float64
+	BlockTimeSec float64
+	BlockReward  float64
+	EthPrice     float64
 }
