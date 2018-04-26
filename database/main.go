@@ -10,15 +10,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// BoltDB Used to hold our methods and such for teh database
+// BoltDB Used to hold our methods and such for the database
+// as well as our configuration information
 type BoltDB struct {
-	db                *bbolt.DB
-	StakeIDBucketName string
+	db                         *bbolt.DB
+	StakeIDBucketName          string
+	TokenLockupContractAddress common.Address
 }
 
 // Setup is used to initialize our connection to boltdb
 // and create the bucket if it does not exist
-func (b *BoltDB) Setup(fp string, bucket string) error {
+func (b *BoltDB) Setup(fp string, bucket string, tokenLockupContractAddress common.Address) error {
 	db, err := bbolt.Open(fp, 0600, nil)
 	if err != nil {
 		return err
@@ -35,6 +37,7 @@ func (b *BoltDB) Setup(fp string, bucket string) error {
 	}
 	b.db = db
 	b.StakeIDBucketName = bucket
+	b.TokenLockupContractAddress = tokenLockupContractAddress
 	return nil
 }
 
@@ -61,7 +64,7 @@ func (b *BoltDB) UpdateStakeIDBucket(address common.Address, id *big.Int) error 
 // stake id is simply the latest known stake id for an address
 // we use this to iterate over the smart contract data and build
 // an at run-time accurate hash rate
-func (b *BoltDB) RetrieveStakeIDInformationForAddress(address common.Address, db *bbolt.DB) *big.Int {
+func (b *BoltDB) RetrieveStakeIDInformationForAddress(address common.Address) *big.Int {
 	var response []byte
 	b.db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte(b.StakeIDBucketName))
