@@ -3,7 +3,10 @@ package manager
 import (
 	"github.com/RTradeLtd/Mining-Stake/database"
 	"github.com/RTradeLtd/Mining-Stake/token_lockup"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/onrik/ethrpc"
+	"github.com/spf13/cobra"
 )
 
 // Used to hold response data from cmc
@@ -32,6 +35,9 @@ type Manager struct {
 	Bolt            *database.BoltDB
 	Block           *BlockStatistics
 	RPC             *ethrpc.EthRPC
+	Client          *ethclient.Client
+	TransactOpts    *bind.TransactOpts
+	Cmd             *cobra.Command
 }
 
 // BlockStatistics hold block related statistics
