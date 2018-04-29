@@ -2,6 +2,7 @@ package manager
 
 import (
 	"log"
+	"math/big"
 
 	"github.com/RTradeLtd/Mining-Stake/database"
 	"github.com/ethereum/go-ethereum/common"
@@ -42,5 +43,10 @@ func main() {
 	}
 
 	var stakes = make(map[common.Address]uint64)
+	var hashRates = make(map[common.Address]*big.Int)
+	var usdPayouts = make(map[common.Address]float64)
 	stakes = manager.Bolt.FetchStakeIDs()
+	for k, v := range stakes {
+		hashRates[k] = manager.CalculateActiveHashRate(k)
+	}
 }
