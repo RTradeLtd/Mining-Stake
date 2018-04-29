@@ -5,7 +5,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/sendgrid/sendgrid-go"
+
 	"github.com/RTradeLtd/Mining-Stake/database"
+	"github.com/RTradeLtd/Mining-Stake/listener"
 	"github.com/RTradeLtd/Mining-Stake/manager"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -42,6 +45,7 @@ func main() {
 		Password:       password,
 		Key:            key,
 		SendGridAPIKey: apiKey,
+		SendGridClient: sendgrid.NewSendClient(apiKey),
 		IpcPath:        ipcPath,
 		RPCURL:         rpcURL,
 		Bolt: &database.BoltDB{
@@ -97,4 +101,7 @@ func Stake(manager *manager.Manager) {
 	}
 }
 
-func Listen(manager *manager.Manager) {}
+// Listen is used to listen for ongoing stakes
+func Listen(manager *manager.Manager) {
+	listener.EventParser(manager)
+}

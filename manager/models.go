@@ -6,10 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/onrik/ethrpc"
+	sendgrid "github.com/sendgrid/sendgrid-go"
 	"github.com/spf13/cobra"
 )
 
-// Used to hold response data from cmc
+// Response used to hold response data from cmc
 type Response struct {
 	ID                 string `json:"id"`
 	Name               string `json:"name"`
@@ -35,7 +36,8 @@ type Manager struct {
 	Bolt            *database.BoltDB
 	Block           *BlockStatistics
 	RPC             *ethrpc.EthRPC
-	Client          *ethclient.Client
+	EthClient       *ethclient.Client
+	SendGridClient  *sendgrid.Client
 	TransactOpts    *bind.TransactOpts
 	Cmd             *cobra.Command
 	SendGridAPIKey  string

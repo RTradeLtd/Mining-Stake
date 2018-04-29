@@ -1,7 +1,7 @@
 package manager
 
 import (
-	"log"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/onrik/ethrpc"
+	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
 
 var emptyString string
@@ -53,14 +54,25 @@ func (m *Manager) AuthenticateWithNetwork() error {
 		return err
 	}
 	m.ContractHandler = tokenLockup
-	m.Client = client
+	m.EthClient = client
 	m.TransactOpts = auth
 	return nil
 }
 
-// SendEmail is used to send us an email when we detect a stake in the system
-func (m *Manager) SendEmail(depositer common.Address, amountStaked *big.Int, duration *big.Int, khSec *big.Int, id *big.Int) {
-	if m.SendGridAPIKey == emptyString {
-		log.Fatal("invalid send grid api key detected")
+// SendNotificationEmail is used to send us an email when we detect a stake in the system
+func (m *Manager) SendNotificationEmail(depositer common.Address, amountStaked *big.Int, duration *big.Int, khSec *big.Int, id *big.Int) (int, error) {
+	content := fmt.Sprintf("<br>Staker: 0x%x<br><br>RTC Staked: %v<br><br>Weeks Staked: %v<br><br>KhSec: %v<br><br>Stake Id: %v<br>", depositer, amountStaked, duration, khSec, id)
+	from := mail.NewEmail("stake-sendgrid-api", "sgapi@rtradetechnologies.com")
+	subject := "New Stake Deposit Detected In Staking Contract"
+	to := mail.NewEmail("Mining Stake", "stake@rtradetechnologies.com")
+
+	mContent := mail.NewContent("text/html", content)
+	mail := mail.NewV3MailInit(from, subject, to, mContent)
+
+	response, err := m.SendGridClient.Send(mail)
+	if err != nil {
+		return 0, err
+	} else {
+		return response.StatusCode, nil
 	}
 }
