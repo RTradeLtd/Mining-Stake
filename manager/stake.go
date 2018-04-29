@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -15,8 +16,8 @@ import (
 // ParseBlockStatistics is used to retrieve block params to
 // allow us to calculate payout data
 func (m *Manager) ParseBlockStatistics() error {
-	// currently we do testing on PoA networks
-	// so we need to mimic a difficulty close to main net
+	//  hard coded value for testing phase
+	// this will be pulled from the blockchain at runtime
 	diffTh := float64(3200)
 	ethUsd := m.RetrieveEthUsdPrice()
 	currentBlockNum, err := m.RPC.EthBlockNumber()
@@ -86,6 +87,12 @@ func (m *Manager) CalculateUsdPayout(mhSec float64, diffTH float64, blockTimeSec
 	return usdEarningsPerDay
 }
 
+// CalculateEthPayout is used to calculate someone's ETH payout earnings for a week
+func (m *Manager) CalculateEthPayout(mhSec float64, diffTH float64, blockTimeSec float64, blockReward float64) (float64, error) {
+	ethEarningsPerDay := float64((mhSec * 1e6 / ((diffTH / blockTimeSec) * 1000 * 1e9)) * ((60 / blockTimeSec) * blockReward) * (60 * 24))
+	return ethEarningsPerDay, nil
+}
+
 // ConstructRtcPayoutData is used to build payout rtc stake payout data
 // current implementation routes to one address at a time
 // to fix this we will need to rework some of the logic
@@ -104,6 +111,7 @@ func (m *Manager) ConstructRtcPayoutData() {
 		percentUsd := new(big.Float).Mul(big.NewFloat(usdEarnings), big.NewFloat(0.1))
 		percentUsdFloat, _ := percentUsd.Float64()
 		fmt.Println("USD Float ", percentUsdFloat)
+		// we are using a fixed RTC price for now
 		rtcFloat := percentUsdFloat / 0.125
 		rtc := FloatToBigInt(rtcFloat)
 		tx, err := m.ContractHandler.RouteRtcRewards(m.TransactOpts, address, rtc)
@@ -113,5 +121,34 @@ func (m *Manager) ConstructRtcPayoutData() {
 			fmt.Println("token payments routed successfully")
 			fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
 		}
+	}
+}
+
+// ConstructEthPayoutData is used to build, and send
+// eth payouts
+func (m *Manager) ConstructEthPayoutData() {
+	var stakerMap = make(map[common.Address]uint64)
+	currDate := time.Now()
+	weekday := currDate.Weekday()
+	if weekday.String() != "Saturday" {
+		log.Fatal("Day is not saturday, pleaes wait until then")
+	}
+	stakerMap = m.Bolt.FetchStakeIDs()
+	for addr := range stakerMap {
+		var address []common.Address
+		address = append(address, addr)
+		hash := m.CalculateActiveHashRate(addr)
+		exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+		dv := new(big.Int).Div(hash, exp)
+		mHash := float64(dv.Int64()) / float64(1000)
+		ethEarnings, _ := m.CalculateEthPayout(mHash, m.Block.DiffTh, m.Block.BlockTimeSec, m.Block.BlockReward)
+		ethEarningsBig := FloatToBigInt(ethEarnings)
+		weekEarnings := new(big.Int).Mul(ethEarningsBig, big.NewInt(7))
+		m.TransactOpts.Value = weekEarnings
+		tx, err := m.ContractHandler.RouteEthReward(m.TransactOpts, address, weekEarnings)
+		if err != nil {
+			log.Fatal("error sending token ", err)
+		}
+		fmt.Printf("TX Hash 0x%x\n", tx.Hash())
 	}
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/RTradeLtd/Mining-Stake/database"
@@ -52,8 +51,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var stakes = make(map[common.Address]uint64)
-	stakes = manager.Bolt.FetchStakeIDs()
-	fmt.Println(stakes)
 	manager.ConstructRtcPayoutData()
 }
