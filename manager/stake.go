@@ -70,7 +70,7 @@ func (m *Manager) CalculateActiveHashRate(address common.Address) *big.Int {
 	} else {
 		_, khSec, _, _, _, enabled, err := m.ContractHandler.GetStakerStruct(nil, address, zero)
 		if err != nil {
-			log.Fatal("error calculating active hash rate")
+			log.Fatal("error calculating active hash rate ", err)
 		}
 		if enabled == true {
 			return khSec
