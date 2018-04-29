@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/RTradeLtd/Mining-Stake/token_lockup"
+	"github.com/RTradeLtd/Mining-Stake/TokenLockup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/onrik/ethrpc"

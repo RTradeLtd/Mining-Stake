@@ -1,8 +1,8 @@
 package manager
 
 import (
+	"github.com/RTradeLtd/Mining-Stake/TokenLockup"
 	"github.com/RTradeLtd/Mining-Stake/database"
-	"github.com/RTradeLtd/Mining-Stake/token_lockup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/onrik/ethrpc"
