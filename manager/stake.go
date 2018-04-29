@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -128,11 +127,6 @@ func (m *Manager) ConstructRtcPayoutData() {
 // eth payouts
 func (m *Manager) ConstructEthPayoutData() {
 	var stakerMap = make(map[common.Address]uint64)
-	currDate := time.Now()
-	weekday := currDate.Weekday()
-	if weekday.String() != "Saturday" {
-		log.Fatal("Day is not saturday, pleaes wait until then")
-	}
 	stakerMap = m.Bolt.FetchStakeIDs()
 	for addr := range stakerMap {
 		var address []common.Address
