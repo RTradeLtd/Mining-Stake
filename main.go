@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/big"
 
 	"github.com/RTradeLtd/Mining-Stake/database"
 	"github.com/RTradeLtd/Mining-Stake/manager"
@@ -45,13 +44,7 @@ func main() {
 	}
 
 	var stakes = make(map[common.Address]uint64)
-	var hashRates = make(map[common.Address]*big.Int)
-
 	stakes = manager.Bolt.FetchStakeIDs()
-	for k := range stakes {
-		hashRates[k] = manager.CalculateActiveHashRate(k)
-	}
-	for k, v := range hashRates {
-		fmt.Printf("Address %v\nHash Rate %v\n", k, v)
-	}
+	fmt.Println(stakes)
+	manager.ConstructRtcPayoutData()
 }
