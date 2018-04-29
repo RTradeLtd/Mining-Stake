@@ -106,7 +106,7 @@ func (m *Manager) ConstructRtcPayoutData() {
 		fmt.Println("USD Float ", percentUsdFloat)
 		rtcFloat := percentUsdFloat / 0.125
 		rtc := FloatToBigInt(rtcFloat)
-		tx, err := m.ContractHandler.RouteRtcRewards(auth, address, rtc)
+		tx, err := m.ContractHandler.RouteRtcRewards(m.TransactOpts, address, rtc)
 		if err != nil {
 			log.Fatal("error routing token payments ", err)
 		} else {

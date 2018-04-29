@@ -31,7 +31,16 @@ func main() {
 	// setup our connection to the rpc backend
 	manager.EstablishRPCConnection(rpcURL)
 
+	// connect to the backend
 	if err := manager.AuthenticateWithNetwork(); err != nil {
 		log.Fatal(err)
 	}
+
+	// parse through block headers
+	if err := manager.ParseBlockStatistics(); err != nil {
+		log.Fatal(err)
+	}
+
+	var stakes = make(map[common.Address]uint64)
+	stakes = manager.Bolt.FetchStakeIDs()
 }
