@@ -63,7 +63,7 @@ func main() {
 	} else if os.Args[1] == "eth" {
 		currDate := time.Now()
 		weekday := currDate.Weekday()
-		if weekday.String() == "Saturday" {
+		if weekday.String() == "Sunday" {
 			manager.ConstructEthPayoutData()
 		} else {
 			log.Fatal("today is not saturday")
