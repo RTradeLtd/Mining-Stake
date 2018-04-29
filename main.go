@@ -22,7 +22,7 @@ func main() {
 
 	if len(os.Args) > 2 || len(os.Args) < 2 {
 		log.Fatalf("improper invocation\n./Mining-Stake [eth|rtc]")
-	} else if os.Args[1] != "rtc" || os.Args[1] != "eth" {
+	} else if os.Args[1] != "rtc" && os.Args[1] != "eth" {
 		log.Fatalf("%s is not valid, must be rtc or eth\n", os.Args[1])
 	}
 	manager := &manager.Manager{
@@ -68,7 +68,4 @@ func main() {
 		} else {
 			log.Fatal("today is not saturday")
 		}
-	} else {
-		log.Fatalf("Invalid invocatoin\n./Mining-Stake [eth|rtc]")
-	}
 }
