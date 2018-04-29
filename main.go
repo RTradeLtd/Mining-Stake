@@ -20,20 +20,35 @@ const password = "password123"
 
 func main() {
 
-	if len(os.Args) > 2 || len(os.Args) < 2 {
-		log.Fatalf("improper invocation\n./Mining-Stake [eth|rtc]")
-	} else if os.Args[1] != "rtc" && os.Args[1] != "eth" {
-		log.Fatalf("%s is not valid, must be rtc or eth\n", os.Args[1])
+	if len(os.Args) > 3 || len(os.Args) < 3 {
+		log.Fatalf("improper invocation\n./Mining-Stake [stake|listen] [eth|rtc]")
 	}
+
+	if os.Args[1] != "stake" && os.Args[1] != "listen" {
+		log.Fatalf("%s is not valid, must be stake or listen\n", os.Args[1])
+	}
+
+	if os.Args[2] != "rtc" && os.Args[2] != "eth" {
+		log.Fatalf("%s is not valid, must be rtc or eth\n", os.Args[2])
+	}
+
+	// fethc the send grid API key
+	apiKey := os.Getenv("SENDGRID_API_KEY")
+	if len(apiKey) < 15 {
+		log.Fatal("invalid sendgrid key detected")
+	}
+
 	manager := &manager.Manager{
-		Password: password,
-		Key:      key,
-		IpcPath:  ipcPath,
-		RPCURL:   rpcURL,
+		Password:       password,
+		Key:            key,
+		SendGridAPIKey: apiKey,
+		IpcPath:        ipcPath,
+		RPCURL:         rpcURL,
 		Bolt: &database.BoltDB{
 			StakeIDBucketName:          bucketName,
 			TokenLockupContractAddress: common.HexToAddress(tokenLockupAddress),
-		}}
+		},
+	}
 
 	//authenticate with the eht network
 	if err := manager.AuthenticateWithNetwork(); err != nil {
@@ -58,6 +73,17 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if os.Args[1] == "stake" {
+		Stake(manager)
+	} else if os.Args[1] == "listen" {
+		Listen(manager)
+	} else {
+		log.Fatal("invalid run option detected")
+	}
+}
+
+// Stake is used to initiate stake payouts
+func Stake(manager *manager.Manager) {
 	if os.Args[1] == "rtc" {
 		manager.ConstructRtcPayoutData()
 	} else if os.Args[1] == "eth" {
@@ -70,3 +96,5 @@ func main() {
 		}
 	}
 }
+
+func Listen(manager *manager.Manager) {}

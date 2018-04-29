@@ -8,16 +8,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/RTradeLtd/Mining-Stake/TokenLockup"
 	bbolt "github.com/coreos/bbolt"
 	gopass "github.com/howeyc/gopass"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
-
-	"./token_lockup"
 )
 
 func bBoltSetup(dbPath string) *bbolt.DB {

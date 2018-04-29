@@ -38,6 +38,7 @@ type Manager struct {
 	Client          *ethclient.Client
 	TransactOpts    *bind.TransactOpts
 	Cmd             *cobra.Command
+	SendGridAPIKey  string
 	Password        string
 	Key             string
 	IpcPath         string
