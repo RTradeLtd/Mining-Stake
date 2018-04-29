@@ -66,7 +66,7 @@ func main() {
 		if weekday.String() == "Sunday" {
 			manager.ConstructEthPayoutData()
 		} else {
-			log.Fatal("today is not saturday")
+			log.Fatal("today is not Sunday")
 		}
 	}
 }
