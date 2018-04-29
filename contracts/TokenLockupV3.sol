@@ -15,11 +15,15 @@ contract TokenLockup is Administration {
 
     using SafeMath for uint256;
 
+
     /**CONSTANTS*/
     uint256 public constant DEFAULTLOCKUPTIME = 4 weeks;
     uint256 public constant MINSTAKE = 100000000000000000000; // 100 RTC ($12.50 at $0.125/rtc)
     string  public constant VERSION = "1.0.0beta";
 
+
+    // keeps track of hte oraclize contract address from which all price updates will come from
+    address public oracleContractAddress;
     // keeps track of the latest eth-usd ratio, with no decimals
     uint256 public ethUSD;
     // keeps track of the latest rtc-usd ratio, with no decimals
@@ -36,33 +40,17 @@ contract TokenLockup is Administration {
     uint256 public stakerCount;
     bool    public locked;
 
-/*
-
-    function __callback(bytes32 myid, string result) public {
-        locked = true;
-        require(msg.sender == oraclize_cbAddress());
-        require(validOraclizeIds[myid]);
-        ethUSD = parseInt(result);
-        uint256 oneEth = 1 ether;
-        signUpFee = oneEth.div(ethUSD);
-        signUpFee = signUpFee.mul(10);
-        emit EthUsdPriceUpdated(ethUSD);
-        emit SignUpFeeUpdated(signUpFee);
-        delete validOraclizeIds[myid];
-        locked = false;
-        update();
-}
-*/
-
     function updatePrices(
         uint256 _ethUSD,
         uint256 _rtcUSD)
         public
         onlyAdmin
+        onlyOracleContract(msg.sender)
         returns (bool)
     {
         ethUSD = _ethUSD;
         rtcUSD = _rtcUSD;
+        kiloHashSecondPerRtc = rtcUSD.div(kiloHashSecondPerOneCentUsd);
         return true;
     }
 
@@ -97,6 +85,11 @@ contract TokenLockup is Administration {
     event NewOraclizeQuery(string result);
     event EthUsdPriceUpdated(uint256 price);
     event SignUpFeeUpdated(uint256 fee);
+
+    modifier onlyOracleContract(address _sender) {
+        require(_sender == oracleContractAddress);
+        _;
+    }
 
     modifier registeredStaker(address _staker, uint256 _id) {
         require(stakers[_staker][_id].enabled);
