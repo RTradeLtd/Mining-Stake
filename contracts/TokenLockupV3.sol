@@ -9,10 +9,9 @@ pragma solidity 0.4.23;
 
 import "./Math/SafeMath.sol";
 import "./Modules/Administration.sol";
-import "./Modules/Oraclize.sol";
 import "./Interfaces/RTCoinInterface.sol";
 
-contract TokenLockup is Administration, usingOraclize {
+contract TokenLockup is Administration {
 
     using SafeMath for uint256;
 
@@ -23,16 +22,49 @@ contract TokenLockup is Administration, usingOraclize {
 
     // keeps track of the latest eth-usd ratio, with no decimals
     uint256 public ethUSD;
+    // keeps track of the latest rtc-usd ratio, with no decimals
+    uint256 public rtcUSD;
+    
     // hot wallet used to collect sign up fees,
     address public rtcHotWallet;
     // will always be equivalent to $10 USD of ethereum +/- a few cents
     uint256 public signUpFee;
     // how many RTC for a single kilo hash rate a second, starts out at 1rtc = 6.25KH/s
-    // at starting evaluation, it costs $0.1255USD to get 1 hash a second.
     uint256 public kiloHashSecondPerRtc = 6250000000000000000;
+    // keeps track of how many KH/s for a single USD cent (0.02 kh/sec)
+    uint256 public kiloHashSecondPerOneCentUsd = 20000000000000000;
     uint256 public stakerCount;
     bool    public locked;
 
+/*
+
+    function __callback(bytes32 myid, string result) public {
+        locked = true;
+        require(msg.sender == oraclize_cbAddress());
+        require(validOraclizeIds[myid]);
+        ethUSD = parseInt(result);
+        uint256 oneEth = 1 ether;
+        signUpFee = oneEth.div(ethUSD);
+        signUpFee = signUpFee.mul(10);
+        emit EthUsdPriceUpdated(ethUSD);
+        emit SignUpFeeUpdated(signUpFee);
+        delete validOraclizeIds[myid];
+        locked = false;
+        update();
+}
+*/
+
+    function updatePrices(
+        uint256 _ethUSD,
+        uint256 _rtcUSD)
+        public
+        onlyAdmin
+        returns (bool)
+    {
+        ethUSD = _ethUSD;
+        rtcUSD = _rtcUSD;
+        return true;
+    }
 
     RTCoinInterface public rtI = RTCoinInterface(0x0994f9595d28429584bfb5fcbfea75b9c9ea2c24);
 
@@ -53,7 +85,6 @@ contract TokenLockup is Administration, usingOraclize {
         uint256 rtcRewarded;
     }
 
-    mapping (bytes32 => bool)         private validOraclizeIds; // keep to private, helps reduce gas costs
     mapping (address => StakerStruct[]) public stakers;
     mapping (address => RewardStruct) public rewards;
     mapping (address => uint256) public numStakes;
@@ -90,14 +121,6 @@ contract TokenLockup is Administration, usingOraclize {
     modifier isLocked() {
         require(locked);
         _;
-    }
-
-    /**
-        CONSTRUCTOR
-    */
-    constructor() public payable {
-        bytes32 id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
-        validOraclizeIds[id] = true;
     }
 
     /**
@@ -237,43 +260,6 @@ contract TokenLockup is Administration, usingOraclize {
         returns (uint256)
     {
         return numStakes[_staker];
-    }
-    
-    /**
-        @dev Callback function, used by Oraclize to update the eth-usd conversion rate
-    */
-    function __callback(bytes32 myid, string result) public {
-        locked = true;
-        require(msg.sender == oraclize_cbAddress());
-        require(validOraclizeIds[myid]);
-        ethUSD = parseInt(result);
-        uint256 oneEth = 1 ether;
-        signUpFee = oneEth.div(ethUSD);
-        signUpFee = signUpFee.mul(10);
-        emit EthUsdPriceUpdated(ethUSD);
-        emit SignUpFeeUpdated(signUpFee);
-        delete validOraclizeIds[myid];
-        locked = false;
-        update();
-    }
-
-    function forceUpdate() public onlyAdmin returns (bool) {
-        require(address(this).balance >= oraclize_getPrice("URL"));
-        emit NewOraclizeQuery("Oraclize query was sent, standing by for answer");
-        bytes32 _id = oraclize_query("URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
-        validOraclizeIds[_id] = true;
-        return true;
-    }
-
-    /**
-        @dev Used to trigger an ETH-USD state update
-        @notice Marked private to prevent anyone from forcing an udpate and wasting our ethereum
-    */
-    function update() private {
-        require(address(this).balance >=oraclize_getPrice("URL"));
-        emit NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
-        bytes32 _id = oraclize_query(3600, "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/?convert=USD).0.price_usd");
-        validOraclizeIds[_id] = true;
     }
 
 }
