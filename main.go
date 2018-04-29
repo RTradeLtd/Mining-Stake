@@ -46,10 +46,12 @@ func main() {
 
 	var stakes = make(map[common.Address]uint64)
 	var hashRates = make(map[common.Address]*big.Int)
-	var usdPayouts = make(map[common.Address]float64)
+
 	stakes = manager.Bolt.FetchStakeIDs()
-	for k, v := range stakes {
+	for k := range stakes {
 		hashRates[k] = manager.CalculateActiveHashRate(k)
-		fmt.Println(k, v, usdPayouts)
+	}
+	for k, v := range hashRates {
+		fmt.Printf("Address %v\nHash Rate %v\n", k, v)
 	}
 }
