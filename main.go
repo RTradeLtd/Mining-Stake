@@ -68,4 +68,5 @@ func main() {
 		} else {
 			log.Fatal("today is not saturday")
 		}
+	}
 }
