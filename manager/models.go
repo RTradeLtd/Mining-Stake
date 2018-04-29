@@ -38,6 +38,10 @@ type Manager struct {
 	Client          *ethclient.Client
 	TransactOpts    *bind.TransactOpts
 	Cmd             *cobra.Command
+	Password        string
+	Key             string
+	IpcPath         string
+	RPCURL          string
 }
 
 // BlockStatistics hold block related statistics

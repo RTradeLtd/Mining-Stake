@@ -19,10 +19,19 @@ const password = "password123"
 
 func main() {
 
-	manager := &manager.Manager{}
-	manager.Bolt = &database.BoltDB{
-		StakeIDBucketName:          bucketName,
-		TokenLockupContractAddress: common.HexToAddress(tokenLockupAddress),
+	manager := &manager.Manager{
+		Password: password,
+		Key:      key,
+		IpcPath:  ipcPath,
+		RPCURL:   rpcURL,
+		Bolt: &database.BoltDB{
+			StakeIDBucketName:          bucketName,
+			TokenLockupContractAddress: common.HexToAddress(tokenLockupAddress),
+		}}
+
+	//authenticate with the eht network
+	if err := manager.AuthenticateWithNetwork(); err != nil {
+		log.Fatal(err)
 	}
 
 	//setup the bolt database
@@ -31,7 +40,7 @@ func main() {
 	}
 
 	// setup our connection to the rpc backend
-	manager.EstablishRPCConnection(rpcURL)
+	manager.EstablishRPCConnection()
 
 	// connect to the backend
 	if err := manager.AuthenticateWithNetwork(); err != nil {

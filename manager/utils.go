@@ -29,17 +29,17 @@ func FloatToBigInt(val float64) *big.Int {
 }
 
 // EstablishRPCConnection is used to connect to our rpc node
-func (m *Manager) EstablishRPCConnection(rpcURL string) {
-	m.RPC = ethrpc.New(rpcURL)
+func (m *Manager) EstablishRPCConnection() {
+	m.RPC = ethrpc.New(m.RPCURL)
 }
 
 // AuthenticateWithNetwork is used to authenticate with the ethereum network
 func (m *Manager) AuthenticateWithNetwork() error {
-	client, err := ethclient.Dial(ipcPath)
+	client, err := ethclient.Dial(m.IpcPath)
 	if err != nil {
 		return err
 	}
-	auth, err := bind.NewTransactor(strings.NewReader(key), password)
+	auth, err := bind.NewTransactor(strings.NewReader(m.Key), m.Password)
 	if err != nil {
 		return err
 	}
