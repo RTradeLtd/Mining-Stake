@@ -24,8 +24,6 @@ contract TokenLockup is Administration {
 
     // keeps track of hte oraclize contract address from which all price updates will come from
     address public oracleContractAddress;
-    // keeps track of the latest eth-usd ratio, with no decimals
-    uint256 public ethUSD;
     // keeps track of the latest rtc-usd ratio, with no decimals
     uint256 public rtcUSD;
     
@@ -41,16 +39,13 @@ contract TokenLockup is Administration {
     bool    public locked;
 
     function updatePrices(
-        uint256 _ethUSD,
         uint256 _rtcUSD)
         public
         onlyAdmin
         onlyOracleContract(msg.sender)
         returns (bool)
     {
-        ethUSD = _ethUSD;
         rtcUSD = _rtcUSD;
-        kiloHashSecondPerRtc = rtcUSD.div(kiloHashSecondPerOneCentUsd);
         return true;
     }
 
@@ -150,6 +145,7 @@ contract TokenLockup is Administration {
         returns (bool)
     {
         require(_rtcToStake >= MINSTAKE && _durationInWeeksToStake >= 4);
+        kiloHashSecondPerRtc = rtcUSD.div(kiloHashSecondPerOneCentUsd);
         uint256 id = numStakes[msg.sender];
         numStakes[msg.sender] = numStakes[msg.sender].add(1);
         uint256 khSec = _rtcToStake.mul(kiloHashSecondPerRtc);
