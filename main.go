@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os"
+	"time"
 
 	"github.com/RTradeLtd/Mining-Stake/database"
 	"github.com/RTradeLtd/Mining-Stake/manager"
@@ -51,5 +53,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	manager.ConstructRtcPayoutData()
+	if os.Args[1] == "rtc" {
+		manager.ConstructRtcPayoutData()
+	} else if os.Args[1] == "eth" {
+		currDate := time.Now()
+		weekday := currDate.Weekday()
+		if weekday.String() == "Saturday" {
+			manager.ConstructEthPayoutData()
+		} else {
+			log.Fatal("today is not saturday")
+		}
+	} else {
+		log.Fatalf("Invalid invocatoin\n./Mining-Stake [eth|rtc]")
+	}
 }
