@@ -18,8 +18,7 @@ const bucketName = "stakers"
 const tokenLockupAddress = "0x5ae6c285eeb2e5a9234956cbcf9dea2c97c3a773"
 const rpcURL = "http://127.0.0.1:8545"
 const ipcPath = "/home/solidity/.ethereum/rinkeby/geth.ipc"
-const key = `{"address":"069ba77207ad40b7d386f8e2979a9337a36f991c","crypto":{"cipher":"aes-128-ctr","ciphertext":"b1218c0a8d354cddcb288d021a1e76a5a8617e32b78cff0d9769b6b663851516","cipherparams":{"iv":"f1f1e9461f2e17c3ca6866173b953860"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"b2aaac5ac70f95d81b41ca1042e6ddbb1b73f456ba03c6feb8d1eda7137b571b"},"mac":"4e1eadd303f63936806808059dc1fc3be0a9706de50e5b0f824e1a4bd1310e87"},"id":"54fe5587-3f4f-45b6-b895-d905275faaf5","version":3}`
-const password = "password123"
+const dev = true
 
 func main() {
 
@@ -31,19 +30,29 @@ func main() {
 		log.Fatalf("%s is not valid, must be stake or listen\n", os.Args[1])
 	}
 
-	if os.Args[2] != "rtc" && os.Args[2] != "eth" {
+	if os.Args[1] == "stake" && os.Args[2] != "rtc" && os.Args[2] != "eth" {
 		log.Fatalf("%s is not valid, must be rtc or eth\n", os.Args[2])
 	}
 
 	// fethc the send grid API key
 	apiKey := os.Getenv("SENDGRID_API_KEY")
-	if len(apiKey) < 15 {
+	if len(apiKey) < 15 && dev == false {
 		log.Fatal("invalid sendgrid key detected")
 	}
 
+	ethKey := os.Getenv("ETH_KEY")
+	if len(ethKey) < 25 {
+		log.Fatal("invalid eth key")
+	}
+
+	ethPass := os.Getenv("ETH_PASS")
+	if len(ethPass) < 1 {
+		log.Fatal("invalid eth pass")
+	}
+
 	manager := &manager.Manager{
-		Password:       password,
-		Key:            key,
+		Key:            ethKey,
+		Password:       ethPass,
 		SendGridAPIKey: apiKey,
 		SendGridClient: sendgrid.NewSendClient(apiKey),
 		IpcPath:        ipcPath,
@@ -93,7 +102,7 @@ func Stake(manager *manager.Manager) {
 	} else if os.Args[1] == "eth" {
 		currDate := time.Now()
 		weekday := currDate.Weekday()
-		if weekday.String() == "Sunday" {
+		if weekday.String() == "Saturday" {
 			manager.ConstructEthPayoutData()
 		} else {
 			log.Fatal("today is not Sunday")
