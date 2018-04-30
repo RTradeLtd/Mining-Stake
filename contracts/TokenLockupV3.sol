@@ -18,23 +18,20 @@ contract TokenLockup is Administration {
 
     /**CONSTANTS*/
     uint256 public constant DEFAULTLOCKUPTIME = 4 weeks;
-    uint256 public constant MINSTAKE = 100000000000000000000; // 100 RTC ($12.50 at $0.125/rtc)
+    uint256 public constant MINSTAKE = 360000000000000000; // 100 RTC ($12.50 at $0.125/rtc)
+    uint256 public constant kiloHashSecondPerOneCentCad = 100;
     string  public constant VERSION = "1.0.0beta";
 
 
     // keeps track of hte oraclize contract address from which all price updates will come from
     address public oracleContractAddress;
-    // keeps track of the latest rtc-usd ratio, with no decimals
-    uint256 public rtcUSD;
+    // keeps track of the latest rtc-cad ratio, with no decimals
+    uint256 public rtcCAD;
     
     // hot wallet used to collect sign up fees,
     address public rtcHotWallet;
     // will always be equivalent to $10 USD of ethereum +/- a few cents
     uint256 public signUpFee;
-    // how many RTC for a single kilo hash rate a second, starts out at 1rtc = 6.25KH/s
-    uint256 public kiloHashSecondPerRtc = 6250000000000000000;
-    // keeps track of how many KH/s for a single USD cent (0.02 kh/sec)
-    uint256 public kiloHashSecondPerOneCentUsd = 20000000000000000;
     uint256 public stakerCount;
     bool    public locked;
 
@@ -128,7 +125,7 @@ contract TokenLockup is Administration {
         // since we need to read storage data, as opposed to call data
         assert(tx.origin == msg.sender);
         require(_rtcToStake >= MINSTAKE && _durationInWeeksToStake >= 4);
-        kiloHashSecondPerRtc = rtcUSD.div(kiloHashSecondPerOneCentUsd);
+        uint256 kiloHashSecondPerRtc = rtcCAD.div(kiloHashSecondPerOneCentCad);
         uint256 id = numStakes[msg.sender];
         numStakes[msg.sender] = numStakes[msg.sender].add(1);
         uint256 khSec = _rtcToStake.mul(kiloHashSecondPerRtc);
@@ -165,13 +162,13 @@ contract TokenLockup is Administration {
     }
 
     function updateRtcPrice(
-        uint256 _rtcUSD)
+        uint256 _rtcCAD)
         public
         onlyAdmin
         onlyOracleContract(msg.sender)
         returns (bool)
     {
-        rtcUSD = _rtcUSD;
+        rtcCAD = _rtcCAD;
         return true;
     }
 
@@ -245,4 +242,13 @@ contract TokenLockup is Administration {
         return numStakes[_staker];
     }
 
+    function calculateKhSecForNumRtc(
+        uint256 _rtcToStake)
+        public
+        view
+        returns (uint256)
+    {
+        uint256 kiloHashSecondPerRtc = rtcCAD.div(kiloHashSecondPerOneCentCad);
+        return _rtcToStake.mul(kiloHashSecondPerRtc);
+    }
 }
