@@ -86,6 +86,18 @@ contract TokenLockup is Administration {
         require(stakers[_staker][_id].enabled);
         _;
     }
+
+    modifier stakingUnlocked() {
+        require(!locked);
+        _;
+    }
+
+    modifier stakingLocked() {
+        require(locked);
+        _;
+    }
+
+
     /**
         @dev Fallback, allows depositing of ether into the contract
     */
@@ -116,6 +128,7 @@ contract TokenLockup is Administration {
         uint256 _durationInWeeksToStake,
         string _encryptedEmail)
         public
+        stakingUnlocked
         returns (bool)
     {
         // we don't want to allow contracts to deposit into the contract
@@ -205,6 +218,26 @@ contract TokenLockup is Administration {
             emit EthReward(_stakers[i], eth);
             require(_stakers[i].send(eth));
         }
+        return true;
+    }
+    
+    function unlockStaking()
+        public
+        onlyAdmin
+        stakingLocked
+        returns (bool)
+    {
+        locked = false;
+        return true;
+    }
+
+    function lockStaking()
+        public
+        onlyAdmin
+        stakingUnlocked
+        returns (bool)
+    {
+        locked = true;
         return true;
     }
 
