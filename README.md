@@ -23,3 +23,12 @@ We currently have a beta of the staking interface online at https://stake.beta.r
 Through this interface you can use metamask to interact with the smart contract, and view your rewards. However, myetherwallet, or mist can also be used.
 
 *NOTE* Until launch, any stakes initiated with the web interface will populate the smart contract, but will not update our backend. So you will not receive any sort of compensation
+
+
+# TODO
+
+> Update RTC-ETH to reflect new RTC-CAD valuation
+> Update interface for token lockup
+> create interface for oracle contract
+> create golang oracle backend
+> Test new contract

@@ -111,7 +111,7 @@ func (m *Manager) ConstructRtcPayoutData() {
 		percentUsdFloat, _ := percentUsd.Float64()
 		fmt.Println("USD Float ", percentUsdFloat)
 		// we are using a fixed RTC price for now
-		rtcFloat := percentUsdFloat / 0.125
+		rtcFloat := percentUsdFloat / 0.16
 		rtc := FloatToBigInt(rtcFloat)
 		tx, err := m.ContractHandler.RouteRtcRewards(m.TransactOpts, address, rtc)
 		if err != nil {
