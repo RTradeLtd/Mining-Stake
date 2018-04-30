@@ -27,7 +27,6 @@ contract TokenLockup is Administration {
     address public oracleContractAddress;
     // keeps track of the latest rtc-cad ratio, with no decimals
     uint256 public rtcCAD;
-    
     // hot wallet used to collect sign up fees,
     address public rtcHotWallet;
     // will always be equivalent to $10 USD of ethereum +/- a few cents
@@ -177,7 +176,6 @@ contract TokenLockup is Administration {
     function updateRtcPrice(
         uint256 _rtcCAD)
         public
-        onlyAdmin
         onlyOracleContract(msg.sender)
         returns (bool)
     {
@@ -218,6 +216,16 @@ contract TokenLockup is Administration {
             emit EthReward(_stakers[i], eth);
             require(_stakers[i].send(eth));
         }
+        return true;
+    }
+
+    function setOracleContract(
+        address _contractAddress)
+        public
+        onlyAdmin
+        returns (bool)
+    {
+        oracleContractAddress = _contractAddress;
         return true;
     }
     
