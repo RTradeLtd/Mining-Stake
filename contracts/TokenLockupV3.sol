@@ -258,6 +258,8 @@ contract TokenLockup is Administration {
         return (rewards[_staker].ethRewarded, rewards[_staker].rtcRewarded);
     }
 
+    // we cant return an email in this getter or else
+    // we will hit a stack too deep error
     function getStakerStruct(
         address _staker,
         uint256 _id)
@@ -272,6 +274,16 @@ contract TokenLockup is Administration {
             stakers[_staker][_id].releaseDate,
             stakers[_staker][_id].id,
             stakers[_staker][_id].enabled);
+    }
+
+    function getStakerEmailForStakeId(
+        address _staker,
+        uint256 _id)
+        public
+        view
+        returns (string)
+    {
+        return stakers[_staker][_id].encryptedEmail;
     }
 
     function getNumStakes(
