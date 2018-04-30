@@ -2,6 +2,7 @@ pragma solidity 0.4.23;
 
 import "./Math/SafeMath.sol";
 import "./Modules/Administration.sol";
+import "./Interfaces/TokenLockupInterface.sol";
 
 /*
     Used to facilitate oracle style updates of our smart contracts without having to rely on third-party products
@@ -16,16 +17,28 @@ contract Oracle is Administration {
         uint256 updateFrequencyInHours;
         uint256 nextUpdate;
         bool    enabled;
+        mapping (bytes4 => bool) validFunctions;
     }
 
     mapping (address => AuthorizedContractStruct) public contracts;
 
     event AuthorizedContractAdded(address _contractAddress);
 
+    modifier authorizedContract(address _contractAddress) {
+        require(contracts[_contractAddress].enabled);
+        _;
+    }
+
+    modifier authorizedFunctionCall(address _contractAddress, bytes4 _functionCall) {
+        require(contracts[_contractAddress].validFunctions[_functionCall]);
+        _;
+    }
+
     function addAuthorizedContract(
         address _contractAddress,
         uint256 _updateFrequencyInHours,
-        uint256 _nextUpdate)
+        uint256 _nextUpdate,
+        bytes4[] )
         public
         onlyAdmin
         returns (bool)
@@ -36,6 +49,19 @@ contract Oracle is Administration {
         a.nextUpdate = now.add(_updateFrequencyInHours.mul(1 hours));
         contracts[_contractAddress] = a;
         emit AuthorizedContractAdded(_contractAddress);
+        return true;
+    }
+
+    function updateRtcPrice(
+        address _destinationContract,
+        uint256 _rtcUSD)
+        public
+        onlyAdmin
+        authorizedContract(_destinationContract)
+        authorizedFunctionCall(_destinationContract, bytes4(keccak256("updateRtcPrice(uint256)")))
+        returns (bool)
+    {
+        require(TokenLockupInterface(_destinationContract).updateRtcPrice(_rtcUSD));
         return true;
     }
 }

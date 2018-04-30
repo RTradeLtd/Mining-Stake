@@ -38,17 +38,6 @@ contract TokenLockup is Administration {
     uint256 public stakerCount;
     bool    public locked;
 
-    function updatePrices(
-        uint256 _rtcUSD)
-        public
-        onlyAdmin
-        onlyOracleContract(msg.sender)
-        returns (bool)
-    {
-        rtcUSD = _rtcUSD;
-        return true;
-    }
-
     RTCoinInterface public rtI = RTCoinInterface(0x0994f9595d28429584bfb5fcbfea75b9c9ea2c24);
 
     struct StakerStruct {
@@ -100,17 +89,6 @@ contract TokenLockup is Administration {
         require(stakers[_staker][_id].enabled);
         _;
     }
-
-    modifier notLocked() {
-        require(!locked);
-        _;
-    }
-
-    modifier isLocked() {
-        require(locked);
-        _;
-    }
-
     /**
         @dev Fallback, allows depositing of ether into the contract
     */
@@ -141,9 +119,14 @@ contract TokenLockup is Administration {
         uint256 _durationInWeeksToStake,
         string _encryptedEmail)
         public
-        notLocked
         returns (bool)
     {
+        // we don't want to allow contracts to deposit into the contract
+        // since transaction origins can never (as of april 2018) be contracts themselves
+        // for this to fail the msg.sender would have to be a 
+        // we are avoiding using extcodesize opcode since that is significantly more expensive
+        // since we need to read storage data, as opposed to call data
+        assert(tx.origin == msg.sender);
         require(_rtcToStake >= MINSTAKE && _durationInWeeksToStake >= 4);
         kiloHashSecondPerRtc = rtcUSD.div(kiloHashSecondPerOneCentUsd);
         uint256 id = numStakes[msg.sender];
@@ -178,6 +161,17 @@ contract TokenLockup is Administration {
         stakers[msg.sender][_stakeId].enabled = false;
         emit DepositWithdrawn(msg.sender, deposit, _stakeId);
         require(rtI.transfer(msg.sender, deposit));
+        return true;
+    }
+
+    function updateRtcPrice(
+        uint256 _rtcUSD)
+        public
+        onlyAdmin
+        onlyOracleContract(msg.sender)
+        returns (bool)
+    {
+        rtcUSD = _rtcUSD;
         return true;
     }
 

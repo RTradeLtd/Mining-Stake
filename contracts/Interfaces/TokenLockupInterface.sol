@@ -1,4 +1,4 @@
-pragma solidity 0.4.21;
+pragma solidity 0.4.23;
 
 interface TokenLockupInterface {
 	function setRtI(address _rtcAddress) external returns (bool);
@@ -9,4 +9,5 @@ interface TokenLockupInterface {
 	function verifyEnabledStake(address _staker, uint256 _id) external view returns (bool);
 	function owner() external view returns (address);
 	function admin() external view returns (address);
+    function updateRtcPrice(uint256 _rtcUSD) external returns (bool);
 }
