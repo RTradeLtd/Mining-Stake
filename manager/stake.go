@@ -95,14 +95,18 @@ func (m *Manager) CalculateEthPayout(mhSec float64, diffTH float64, blockTimeSec
 // ConstructRtcPayoutData is used to build payout rtc stake payout data
 // current implementation routes to one address at a time
 // to fix this we will need to rework some of the logic
-func (m *Manager) ConstructRtcPayoutData() {
+func (m *Manager) ConstructRtcPayoutData() map[common.Address]*big.Int {
 	var stakerMap = make(map[common.Address]uint64)
+	var activeStakers = make(map[common.Address]*big.Int)
 	stakerMap = m.Bolt.FetchStakeIDs()
 	var addresses []common.Address
 	var rtcs []*big.Int
 	for k := range stakerMap {
 		addresses = append(addresses, k)
 		hash := m.CalculateActiveHashRate(k)
+		if hash.Cmp(big.NewInt(0)) <= 0 {
+			continue
+		}
 		// since we're dealing with big numbers, we can simply just divide by 10^18, we need to do that by utilizing big int variables
 		exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 		dv := new(big.Int).Div(hash, exp)
@@ -115,6 +119,7 @@ func (m *Manager) ConstructRtcPayoutData() {
 		rtcFloat := percentUsdFloat / 0.16
 		rtc := FloatToBigInt(rtcFloat)
 		rtcs = append(rtcs, rtc)
+		activeStakers[k] = rtc
 	}
 	tx, err := m.ContractHandler.RouteRtcRewards(m.TransactOpts, addresses, rtcs)
 	if err != nil {
@@ -122,12 +127,14 @@ func (m *Manager) ConstructRtcPayoutData() {
 	}
 	fmt.Println("token payments routed successfully")
 	fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
+	return activeStakers
 }
 
 // ConstructEthPayoutData is used to build, and send
 // eth payouts
-func (m *Manager) ConstructEthPayoutData() {
+func (m *Manager) ConstructEthPayoutData() map[common.Address]*big.Int {
 	var stakerMap = make(map[common.Address]uint64)
+	var activeStakers = make(map[common.Address]*big.Int)
 	stakerMap = m.Bolt.FetchStakeIDs()
 	var addresses []common.Address
 	var eths []*big.Int
@@ -143,6 +150,7 @@ func (m *Manager) ConstructEthPayoutData() {
 		weekEarnings := new(big.Int).Mul(ethEarningsBig, big.NewInt(7))
 		totalEarnings = new(big.Int).Add(totalEarnings, weekEarnings)
 		eths = append(eths, weekEarnings)
+		activeStakers[addr] = weekEarnings
 	}
 	m.TransactOpts.Value = totalEarnings
 	tx, err := m.ContractHandler.RouteEthReward(m.TransactOpts, addresses, eths)
@@ -150,4 +158,5 @@ func (m *Manager) ConstructEthPayoutData() {
 		log.Fatal("error sending token ", err)
 	}
 	fmt.Printf("TX Hash 0x%x\n", tx.Hash())
+	return activeStakers
 }
