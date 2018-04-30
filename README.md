@@ -6,6 +6,7 @@ Welcome to RTrade's new revamped stake manager, with none of the lags, delays, m
 
 Staking can't be initiated from a contract, and must be initiated from an EOA. Attempts to initiate stakes from a contract account will result in a transaction failure
 
+For email notifications, we will *ONLY* send an email to the email listed in the latest known stake id
 # What Is This?
 
 Mining Stake is RTrade's Mining/Staking platform. By using the RTC coin, you can lock them into a smart contract, the "Token Lockup" contract. You can lock your coins in multiples of 1 week periods, with a minimum duration of 1 week. At lockup, hash rate for the ethhash algorithm is calculated based on your stake. This hash rate is then used to mine ethereum at our mining farms. You receive the ETH you mine, and RTC as a staking bonus. 
