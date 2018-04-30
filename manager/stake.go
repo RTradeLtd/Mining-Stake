@@ -98,9 +98,10 @@ func (m *Manager) CalculateEthPayout(mhSec float64, diffTH float64, blockTimeSec
 func (m *Manager) ConstructRtcPayoutData() {
 	var stakerMap = make(map[common.Address]uint64)
 	stakerMap = m.Bolt.FetchStakeIDs()
+	var addresses []common.Address
+	var rtcs []*big.Int
 	for k := range stakerMap {
-		var address []common.Address
-		address = append(address, k)
+		addresses = append(addresses, k)
 		hash := m.CalculateActiveHashRate(k)
 		// since we're dealing with big numbers, we can simply just divide by 10^18, we need to do that by utilizing big int variables
 		exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
@@ -113,14 +114,14 @@ func (m *Manager) ConstructRtcPayoutData() {
 		// we are using a fixed RTC price for now
 		rtcFloat := percentUsdFloat / 0.16
 		rtc := FloatToBigInt(rtcFloat)
-		tx, err := m.ContractHandler.RouteRtcRewards(m.TransactOpts, address, rtc)
-		if err != nil {
-			log.Fatal("error routing token payments ", err)
-		} else {
-			fmt.Println("token payments routed successfully")
-			fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
-		}
+		rtcs = append(rtcs, rtc)
 	}
+	tx, err := m.ContractHandler.RouteRtcRewards(m.TransactOpts, addresses, rtcs)
+	if err != nil {
+		log.Fatal("error routing token payments ", err)
+	}
+	fmt.Println("token payments routed successfully")
+	fmt.Printf("Transaction hash 0x%x\n", tx.Hash())
 }
 
 // ConstructEthPayoutData is used to build, and send
@@ -128,9 +129,11 @@ func (m *Manager) ConstructRtcPayoutData() {
 func (m *Manager) ConstructEthPayoutData() {
 	var stakerMap = make(map[common.Address]uint64)
 	stakerMap = m.Bolt.FetchStakeIDs()
+	var addresses []common.Address
+	var eths []*big.Int
+	var totalEarnings = big.NewInt(0)
 	for addr := range stakerMap {
-		var address []common.Address
-		address = append(address, addr)
+		addresses = append(addresses, addr)
 		hash := m.CalculateActiveHashRate(addr)
 		exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 		dv := new(big.Int).Div(hash, exp)
@@ -138,11 +141,13 @@ func (m *Manager) ConstructEthPayoutData() {
 		ethEarnings, _ := m.CalculateEthPayout(mHash, m.Block.DiffTh, m.Block.BlockTimeSec, m.Block.BlockReward)
 		ethEarningsBig := FloatToBigInt(ethEarnings)
 		weekEarnings := new(big.Int).Mul(ethEarningsBig, big.NewInt(7))
-		m.TransactOpts.Value = weekEarnings
-		tx, err := m.ContractHandler.RouteEthReward(m.TransactOpts, address, weekEarnings)
-		if err != nil {
-			log.Fatal("error sending token ", err)
-		}
-		fmt.Printf("TX Hash 0x%x\n", tx.Hash())
+		totalEarnings = new(big.Int).Add(totalEarnings, weekEarnings)
+		eths = append(eths, weekEarnings)
 	}
+	m.TransactOpts.Value = totalEarnings
+	tx, err := m.ContractHandler.RouteEthReward(m.TransactOpts, addresses, eths)
+	if err != nil {
+		log.Fatal("error sending token ", err)
+	}
+	fmt.Printf("TX Hash 0x%x\n", tx.Hash())
 }
