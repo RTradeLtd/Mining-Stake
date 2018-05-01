@@ -2,7 +2,7 @@ pragma solidity 0.4.23;
 
 import "./Math/SafeMath.sol";
 import "./Modules/Administration.sol";
-import "./Interfaces/TokenLockupInterface.sol";
+import "./Interfaces/OracleSubscriberInterface.sol";
 
 /*
     Used to facilitate oracle style updates of our smart contracts without having to rely on third-party products
@@ -37,7 +37,6 @@ contract Oracle is Administration {
     function addAuthorizedContract(
         address _contractAddress,
         uint256 _updateFrequencyInHours,
-        uint256 _nextUpdate,
         bytes4[] _enabledFunctions)
         public
         onlyAdmin
@@ -64,7 +63,20 @@ contract Oracle is Administration {
         authorizedFunctionCall(_destinationContract, bytes4(keccak256("updateRtcPrice(uint256)")))
         returns (bool)
     {
-        require(TokenLockupInterface(_destinationContract).updateRtcPrice(_rtcUSD));
+        require(OracleSubscriberInterface(_destinationContract).updateRtcPrice(_rtcUSD));
+        return true;
+    }
+
+    function updateEthPrice(
+        address _destinationContract,
+        uint256 _ethUSD)
+        public
+        onlyAdmin
+        authorizedContract(_destinationContract)
+        authorizedFunctionCall(_destinationContract, bytes4(keccak256("updateEthPrice(uint256)")))
+        returns (bool)
+    {
+        require(OracleSubscriberInterface(_destinationContract).updateEthPrice(_ethUSD));
         return true;
     }
 }
