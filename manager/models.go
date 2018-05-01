@@ -1,13 +1,15 @@
 package manager
 
 import (
+	"math/big"
+
 	"github.com/RTradeLtd/Mining-Stake/TokenLockup"
 	"github.com/RTradeLtd/Mining-Stake/database"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/onrik/ethrpc"
 	sendgrid "github.com/sendgrid/sendgrid-go"
-	"github.com/spf13/cobra"
 )
 
 // Response used to hold response data from cmc
@@ -29,22 +31,27 @@ type Response struct {
 	LastUpdate         string `json:"last_updated"`
 }
 
+// Reward is used to keep track of the active stakers
+type Reward struct {
+	Stakers map[common.Address]*big.Int
+}
+
 // Manager is a general purpose struct to interface with the
 // token lockup contract
 type Manager struct {
-	ContractHandler *TokenLockup.TokenLockup
-	Bolt            *database.BoltDB
-	Block           *BlockStatistics
-	RPC             *ethrpc.EthRPC
-	EthClient       *ethclient.Client
-	SendGridClient  *sendgrid.Client
-	TransactOpts    *bind.TransactOpts
-	Cmd             *cobra.Command
-	SendGridAPIKey  string
-	Password        string
-	Key             string
-	IpcPath         string
-	RPCURL          string
+	ContractHandler            *TokenLockup.TokenLockup
+	Bolt                       *database.BoltDB
+	Block                      *BlockStatistics
+	RPC                        *ethrpc.EthRPC
+	EthClient                  *ethclient.Client
+	SendGridClient             *sendgrid.Client
+	TransactOpts               *bind.TransactOpts
+	TokenLockupContractAddress common.Address
+	SendGridAPIKey             string
+	Password                   string
+	Key                        string
+	IpcPath                    string
+	RPCURL                     string
 }
 
 // BlockStatistics hold block related statistics

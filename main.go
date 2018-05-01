@@ -10,15 +10,17 @@ import (
 	"github.com/RTradeLtd/Mining-Stake/database"
 	"github.com/RTradeLtd/Mining-Stake/listener"
 	"github.com/RTradeLtd/Mining-Stake/manager"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 const dbPath = "stakers.db"
-const bucketName = "stakers"
+const stakeBucket = "stakers"
+const emailBucket = "emails"
 const tokenLockupAddress = "0x5ae6c285eeb2e5a9234956cbcf9dea2c97c3a773"
-const rpcURL = "http://127.0.0.1:8545"
-const ipcPath = "/home/solidity/.ethereum/rinkeby/geth.ipc"
+const rpcURL = "http://127.0.0.1:8501"
+const ipcPath = "/home/soliidty/DevNet/node1/geth.ipc"
 const dev = true
+
+var oracleBucket string
 
 func main() {
 
@@ -58,8 +60,8 @@ func main() {
 		IpcPath:        ipcPath,
 		RPCURL:         rpcURL,
 		Bolt: &database.BoltDB{
-			StakeIDBucketName:          bucketName,
-			TokenLockupContractAddress: common.HexToAddress(tokenLockupAddress),
+			StakeIDBucketName: stakeBucket,
+			EmailBucketName:   emailBucket,
 		},
 	}
 
@@ -69,7 +71,7 @@ func main() {
 	}
 
 	//setup the bolt database
-	if err := manager.Bolt.Setup(dbPath, bucketName, manager.Bolt.TokenLockupContractAddress); err != nil {
+	if err := manager.Bolt.Setup(dbPath, stakeBucket, emailBucket, oracleBucket); err != nil {
 		log.Fatal(err)
 	}
 
@@ -98,12 +100,14 @@ func main() {
 // Stake is used to initiate stake payouts
 func Stake(manager *manager.Manager) {
 	if os.Args[1] == "rtc" {
-		manager.ConstructRtcPayoutData()
+		m := manager.ConstructRtcPayoutData()
+		manager.SendEmailsForStakePayout(m, "rtc")
 	} else if os.Args[1] == "eth" {
 		currDate := time.Now()
 		weekday := currDate.Weekday()
 		if weekday.String() == "Saturday" {
-			manager.ConstructEthPayoutData()
+			m := manager.ConstructEthPayoutData()
+			manager.SendEmailsForStakePayout(m, "eth")
 		} else {
 			log.Fatal("today is not Sunday")
 		}

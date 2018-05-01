@@ -38,7 +38,7 @@ contract Oracle is Administration {
         address _contractAddress,
         uint256 _updateFrequencyInHours,
         uint256 _nextUpdate,
-        bytes4[] )
+        bytes4[] _enabledFunctions)
         public
         onlyAdmin
         returns (bool)
@@ -48,6 +48,9 @@ contract Oracle is Administration {
         a.updateFrequencyInHours = _updateFrequencyInHours;
         a.nextUpdate = now.add(_updateFrequencyInHours.mul(1 hours));
         contracts[_contractAddress] = a;
+        for (uint256 i = 0; i < _enabledFunctions.length; i++) {
+            contracts[_contractAddress].validFunctions[_enabledFunctions[i]] = true;
+        }
         emit AuthorizedContractAdded(_contractAddress);
         return true;
     }

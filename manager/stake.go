@@ -67,17 +67,17 @@ func (m *Manager) CalculateActiveHashRate(address common.Address) *big.Int {
 			}
 		}
 		return khSecSum
-	} else {
-		_, khSec, _, _, _, enabled, err := m.ContractHandler.GetStakerStruct(nil, address, zero)
-		if err != nil {
-			log.Fatal("error calculating active hash rate ", err)
-		}
-		if enabled == true {
-			return khSec
-		} else {
-			return zero
-		}
 	}
+	_, khSec, _, _, _, enabled, err := m.ContractHandler.GetStakerStruct(nil, address, zero)
+	if err != nil {
+		log.Fatal("error calculating active hash rate ", err)
+	}
+	if enabled == true {
+		return khSec
+	} else {
+		return zero
+	}
+
 }
 
 // CalculateUsdPayout is used to calculate someone's USD payout given their hash rate
