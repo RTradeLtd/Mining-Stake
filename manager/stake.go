@@ -58,7 +58,7 @@ func (m *Manager) CalculateActiveHashRate(address common.Address) *big.Int {
 	// compare i to end, if less than end (-1) continue, increment counter by 1
 	if end.Cmp(one) == 0 {
 		for i := new(big.Int).Set(start); i.Cmp(end) == -1; i.Add(i, one) {
-			_, khSec, _, _, _, enabled, err := m.ContractHandler.GetStakerStruct(nil, address, i)
+			_, khSec, _, _, _, enabled, err := m.TokenLockupContractHandler.GetStakerStruct(nil, address, i)
 			if err != nil {
 				log.Fatal("error calculcating hash rate ", err)
 			}
@@ -68,7 +68,7 @@ func (m *Manager) CalculateActiveHashRate(address common.Address) *big.Int {
 		}
 		return khSecSum
 	}
-	_, khSec, _, _, _, enabled, err := m.ContractHandler.GetStakerStruct(nil, address, zero)
+	_, khSec, _, _, _, enabled, err := m.TokenLockupContractHandler.GetStakerStruct(nil, address, zero)
 	if err != nil {
 		log.Fatal("error calculating active hash rate ", err)
 	}
@@ -121,7 +121,7 @@ func (m *Manager) ConstructRtcPayoutData() map[common.Address]*big.Int {
 		rtcs = append(rtcs, rtc)
 		activeStakers[k] = rtc
 	}
-	tx, err := m.ContractHandler.RouteRtcRewards(m.TransactOpts, addresses, rtcs)
+	tx, err := m.TokenLockupContractHandler.RouteRtcRewards(m.TransactOpts, addresses, rtcs)
 	if err != nil {
 		log.Fatal("error routing token payments ", err)
 	}
@@ -153,7 +153,7 @@ func (m *Manager) ConstructEthPayoutData() map[common.Address]*big.Int {
 		activeStakers[addr] = weekEarnings
 	}
 	m.TransactOpts.Value = totalEarnings
-	tx, err := m.ContractHandler.RouteEthReward(m.TransactOpts, addresses, eths)
+	tx, err := m.TokenLockupContractHandler.RouteEthReward(m.TransactOpts, addresses, eths)
 	if err != nil {
 		log.Fatal("error sending token ", err)
 	}

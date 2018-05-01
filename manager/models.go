@@ -3,6 +3,7 @@ package manager
 import (
 	"math/big"
 
+	"github.com/RTradeLtd/Mining-Stake/Oracle"
 	"github.com/RTradeLtd/Mining-Stake/TokenLockup"
 	"github.com/RTradeLtd/Mining-Stake/database"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -39,7 +40,7 @@ type Reward struct {
 // Manager is a general purpose struct to interface with the
 // token lockup contract
 type Manager struct {
-	ContractHandler            *TokenLockup.TokenLockup
+	TokenLockupContractHandler *TokenLockup.TokenLockup
 	Bolt                       *database.BoltDB
 	Block                      *BlockStatistics
 	RPC                        *ethrpc.EthRPC
@@ -52,6 +53,10 @@ type Manager struct {
 	Key                        string
 	IpcPath                    string
 	RPCURL                     string
+}
+
+type OracleManager struct {
+	ContractHandler *Oracle.Oracle
 }
 
 // BlockStatistics hold block related statistics

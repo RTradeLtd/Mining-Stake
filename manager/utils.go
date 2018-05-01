@@ -50,7 +50,7 @@ func (m *Manager) AuthenticateWithNetwork() error {
 	if err != nil {
 		return err
 	}
-	m.ContractHandler = tokenLockup
+	m.TokenLockupContractHandler = tokenLockup
 	m.EthClient = client
 	m.TransactOpts = auth
 	return nil

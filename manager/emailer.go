@@ -49,7 +49,7 @@ func (m *Manager) SendNotificationEmail(depositer common.Address, amountStaked *
 func (m *Manager) SendEmailsForStakePayout(stakers map[common.Address]*big.Int, coin string) error {
 	for k, v := range stakers {
 		stakeID := m.Bolt.RetrieveStakeIDInformationForAddress(k)
-		encryptedEmail, err := m.ContractHandler.GetStakerEmailForStakeId(nil, k, stakeID)
+		encryptedEmail, err := m.TokenLockupContractHandler.GetStakerEmailForStakeId(nil, k, stakeID)
 		if err != nil {
 			return err
 		}

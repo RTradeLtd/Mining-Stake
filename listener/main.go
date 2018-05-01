@@ -12,7 +12,7 @@ import (
 // when we have a new stake
 func EventParser(m *manager.Manager) {
 	var ch = make(chan *TokenLockup.TokenLockupStakeDeposited)
-	sub, err := m.ContractHandler.WatchStakeDeposited(nil, ch)
+	sub, err := m.TokenLockupContractHandler.WatchStakeDeposited(nil, ch)
 	if err != nil {
 		log.Fatal("error creating subscription for stake deposited")
 	}
