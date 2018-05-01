@@ -38,9 +38,10 @@ type Reward struct {
 }
 
 // Manager is a general purpose struct to interface with the
-// token lockup contract
+// token lockup contract, oracle contract, and more
 type Manager struct {
 	TokenLockupContractHandler *TokenLockup.TokenLockup
+	OracleContractHandler      *Oracle.Oracle
 	Bolt                       *database.BoltDB
 	Block                      *BlockStatistics
 	RPC                        *ethrpc.EthRPC
@@ -48,15 +49,12 @@ type Manager struct {
 	SendGridClient             *sendgrid.Client
 	TransactOpts               *bind.TransactOpts
 	TokenLockupContractAddress common.Address
+	OracleContractAddress      common.Address
 	SendGridAPIKey             string
 	Password                   string
 	Key                        string
 	IpcPath                    string
 	RPCURL                     string
-}
-
-type OracleManager struct {
-	ContractHandler *Oracle.Oracle
 }
 
 // BlockStatistics hold block related statistics

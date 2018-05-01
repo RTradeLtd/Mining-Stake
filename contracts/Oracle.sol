@@ -17,6 +17,7 @@ contract Oracle is Administration {
         uint256 updateFrequencyInHours;
         uint256 nextUpdate;
         bool    enabled;
+        bytes4[] enabledFunctions;
         mapping (bytes4 => bool) validFunctions;
     }
 
@@ -46,6 +47,7 @@ contract Oracle is Administration {
         a.contractAddress = _contractAddress;
         a.updateFrequencyInHours = _updateFrequencyInHours;
         a.nextUpdate = now.add(_updateFrequencyInHours.mul(1 hours));
+        a.enabledFunctions = _enabledFunctions;
         contracts[_contractAddress] = a;
         for (uint256 i = 0; i < _enabledFunctions.length; i++) {
             contracts[_contractAddress].validFunctions[_enabledFunctions[i]] = true;
@@ -53,6 +55,8 @@ contract Oracle is Administration {
         emit AuthorizedContractAdded(_contractAddress);
         return true;
     }
+
+
 
     function updateRtcPrice(
         address _destinationContract,

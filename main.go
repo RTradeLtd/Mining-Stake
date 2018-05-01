@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/sendgrid/sendgrid-go"
 
 	"github.com/RTradeLtd/Mining-Stake/database"
@@ -15,20 +17,22 @@ import (
 const dbPath = "stakers.db"
 const stakeBucket = "stakers"
 const emailBucket = "emails"
+const oracleBucket = "oracle"
 const tokenLockupAddress = "0x5ae6c285eeb2e5a9234956cbcf9dea2c97c3a773"
+const oracleContractAddress = "0x5ae6c285eeb2e5a9234956cbcf9dea2c97c3a773"
 const rpcURL = "http://127.0.0.1:8501"
 const ipcPath = "/home/soliidty/DevNet/node1/geth.ipc"
 const dev = true
 
-var oracleBucket string
+var emptyString string
 
 func main() {
 
 	if len(os.Args) > 3 || len(os.Args) < 3 {
-		log.Fatalf("improper invocation\n./Mining-Stake [stake|listen] [eth|rtc]")
+		log.Fatalf("improper invocation\n./Mining-Stake [stake|listen|oracle] [eth|rtc|noop]")
 	}
 
-	if os.Args[1] != "stake" && os.Args[1] != "listen" {
+	if os.Args[1] != "stake" && os.Args[1] != "listen" && os.Args[1] != "oracle" {
 		log.Fatalf("%s is not valid, must be stake or listen\n", os.Args[1])
 	}
 
@@ -53,19 +57,19 @@ func main() {
 	}
 
 	manager := &manager.Manager{
-		Key:            ethKey,
-		Password:       ethPass,
-		SendGridAPIKey: apiKey,
-		SendGridClient: sendgrid.NewSendClient(apiKey),
-		IpcPath:        ipcPath,
-		RPCURL:         rpcURL,
-		Bolt: &database.BoltDB{
-			StakeIDBucketName: stakeBucket,
-			EmailBucketName:   emailBucket,
-		},
+		Key:                        ethKey,
+		Password:                   ethPass,
+		SendGridAPIKey:             apiKey,
+		SendGridClient:             sendgrid.NewSendClient(apiKey),
+		TokenLockupContractAddress: common.HexToAddress(tokenLockupAddress),
+		OracleContractAddress:      common.HexToAddress(oracleContractAddress),
+		IpcPath:                    ipcPath,
+		RPCURL:                     rpcURL,
+		Bolt:                       &database.BoltDB{},
 	}
 
-	//authenticate with the eht network
+	//authenticate with the eth network
+	// this loads both the oracle and token lockup contracts
 	if err := manager.AuthenticateWithNetwork(); err != nil {
 		log.Fatal(err)
 	}

@@ -1,9 +1,11 @@
 package manager
 
 import (
+	"log"
 	"math/big"
 	"strings"
 
+	"github.com/RTradeLtd/Mining-Stake/Oracle"
 	"github.com/RTradeLtd/Mining-Stake/TokenLockup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -50,6 +52,11 @@ func (m *Manager) AuthenticateWithNetwork() error {
 	if err != nil {
 		return err
 	}
+	oracleContract, err := Oracle.NewOracle(m.OracleContractAddress, client)
+	if err != nil {
+		log.Fatal(err)
+	}
+	m.OracleContractHandler = oracleContract
 	m.TokenLockupContractHandler = tokenLockup
 	m.EthClient = client
 	m.TransactOpts = auth
