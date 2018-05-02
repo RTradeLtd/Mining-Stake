@@ -20,8 +20,8 @@ const emailBucket = "emails"
 const oracleBucket = "oracle"
 const tokenLockupAddress = "0x5ae6c285eeb2e5a9234956cbcf9dea2c97c3a773"
 const oracleContractAddress = "0x5ae6c285eeb2e5a9234956cbcf9dea2c97c3a773"
-const rpcURL = "http://127.0.0.1:8501"
-const ipcPath = "/home/soliidty/DevNet/node1/geth.ipc"
+const rpcURL = "http://127.0.0.1:8545"
+const ipcPath = "/home/solidity/.ethereum/rinkeby/geth.ipc"
 const dev = true
 
 var emptyString string
