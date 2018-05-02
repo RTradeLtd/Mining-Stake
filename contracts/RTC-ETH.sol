@@ -25,6 +25,17 @@ contract RTCETH is Administration {
 
     function () public payable {}
 
+    function setRtInterfae(
+        address _rtcAddress)
+        public
+        onlyAdmin
+        returns (bool)
+    {
+        rtI = RTCoinInterface(_rtcAddress);
+        // event place holder
+        return true;
+    }
+
     function updateEthPrice(
         uint256 _ethUSD)
         public
