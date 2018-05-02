@@ -19,6 +19,38 @@ contract RTCETH is Administration {
     event EthPerRtcUpdated(uint256 _ethPerRtc);
     event RtcPurchased(uint256 _rtcPurchased);
 
+    modifier notLocked() {
+        require(!locked);
+        _;
+    }
+
+    modifier isLocked() {
+        require(locked);
+        _;
+    }
+
+    function lockSales()
+        public
+        onlyAdmin
+        notLocked
+        returns (bool)
+    {
+        locked = true;
+        // place holder
+        return true;
+    }
+
+    function unlockSales()
+        public
+        onlyAdmin
+        isLocked
+        returns (bool)
+    {
+        locked = false;
+        // place holder
+        return true;
+    }
+
     constructor() public payable {
         rtI = RTCoinInterface(address(0));
     }
@@ -61,9 +93,20 @@ contract RTCETH is Administration {
         return true;
     }
 
+    function withdrawRemainingRtc()
+        public
+        onlyAdmin
+        isLocked
+        returns (bool)
+    {
+        require(rtI.transfer(msg.sender, rtI.balanceOf(address(this))));
+        return true;
+    }
+
     function buyRtc()
         public
         payable
+        notLocked
         returns (bool)
     {
         require(hotWallet != address(0));
