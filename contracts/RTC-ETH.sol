@@ -81,7 +81,7 @@ contract RTCETH is Administration {
         ethUSD = _ethUSD;
         uint256 oneEth = 1 ether;
         uint256 oneUsdOfEth = oneEth.div(ethUSD);
-        ethPerRtc = oneUsdOfEth.div(8);
+        ethPerRtc = (oneUsdOfEth.div(8)).div(1 ether);
         emit EthUsdPriceUpdated(ethUSD);
         emit EthPerRtcUpdated(ethPerRtc);
         return true;
