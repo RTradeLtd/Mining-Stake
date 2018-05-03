@@ -10,7 +10,7 @@ contract RTCETH is Administration {
 
     address public hotWallet;
     uint256 public ethUSD;
-    uint256 public ethPerRtc;
+    uint256 public weiPerRtc;
     bool   public locked;
 
     RTCoinInterface public rtI;
@@ -72,6 +72,7 @@ contract RTCETH is Administration {
         return true;
     }
 
+
     function updateEthPrice(
         uint256 _ethUSD)
         public
@@ -81,9 +82,9 @@ contract RTCETH is Administration {
         ethUSD = _ethUSD;
         uint256 oneEth = 1 ether;
         uint256 oneUsdOfEth = oneEth.div(ethUSD);
-        ethPerRtc = (oneUsdOfEth.div(8)).div(1 ether);
+        weiPerRtc = oneUsdOfEth.div(8);
         emit EthUsdPriceUpdated(ethUSD);
-        emit EthPerRtcUpdated(ethPerRtc);
+        emit EthPerRtcUpdated(weiPerRtc);
         return true;
     }
 
@@ -116,7 +117,7 @@ contract RTCETH is Administration {
     {
         require(hotWallet != address(0));
         require(msg.value > 0);
-        uint256 rtcPurchased = msg.value.div(ethPerRtc);
+        uint256 rtcPurchased = (msg.value.div(weiPerRtc)).mul(1 ether);
         emit RtcPurchased(rtcPurchased);
         hotWallet.transfer(msg.value);
         emit RtcPurchased(rtcPurchased);

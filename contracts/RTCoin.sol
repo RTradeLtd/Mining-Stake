@@ -10,7 +10,7 @@ pragma solidity 0.4.23;
 import "./Modules/Administration.sol";
 import "./Math/SafeMath.sol";
 
-contract RTCoin {
+contract RTCoin is Administration {
 
     using SafeMath for uint256;
 
