@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/RTradeLtd/Mining-Stake/TokenLockup"
+	"github.com/RTradeLtd/Mining-Stake/bindings"
 	"github.com/RTradeLtd/Mining-Stake/manager"
 )
 
 // EventParser is used to parse evm events to notify us
 // when we have a new stake
 func EventParser(m *manager.Manager) {
-	var ch = make(chan *TokenLockup.TokenLockupStakeDeposited)
+	var ch = make(chan *bindings.TokenLockupStakeDeposited)
 	sub, err := m.TokenLockupContractHandler.WatchStakeDeposited(nil, ch)
 	if err != nil {
 		log.Fatal("error creating subscription for stake deposited")

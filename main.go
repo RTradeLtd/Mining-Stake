@@ -7,11 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/sendgrid/sendgrid-go"
-
 	"github.com/RTradeLtd/Mining-Stake/database"
 	"github.com/RTradeLtd/Mining-Stake/listener"
 	"github.com/RTradeLtd/Mining-Stake/manager"
+	sendgrid "github.com/sendgrid/sendgrid-go"
 )
 
 const dbPath = "stakers.db"

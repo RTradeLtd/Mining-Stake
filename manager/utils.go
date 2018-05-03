@@ -5,8 +5,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/RTradeLtd/Mining-Stake/Oracle"
-	"github.com/RTradeLtd/Mining-Stake/TokenLockup"
+	"github.com/RTradeLtd/Mining-Stake/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/onrik/ethrpc"
@@ -48,11 +47,11 @@ func (m *Manager) AuthenticateWithNetwork() error {
 		return err
 	}
 
-	tokenLockup, err := TokenLockup.NewTokenLockup(m.TokenLockupContractAddress, client)
+	tokenLockup, err := bindings.NewTokenLockup(m.TokenLockupContractAddress, client)
 	if err != nil {
 		return err
 	}
-	oracleContract, err := Oracle.NewOracle(m.OracleContractAddress, client)
+	oracleContract, err := bindings.NewOracle(m.OracleContractAddress, client)
 	if err != nil {
 		log.Fatal(err)
 	}
