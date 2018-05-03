@@ -114,6 +114,7 @@ contract RTCETH is Administration {
         uint256 rtcPurchased = msg.value.div(ethPerRtc);
         emit RtcPurchased(rtcPurchased);
         hotWallet.transfer(msg.value);
+        emit RtcPurchased(rtcPurchased);
         require(rtI.transfer(msg.sender, rtcPurchased));
         return true;
     }
