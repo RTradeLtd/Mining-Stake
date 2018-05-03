@@ -56,7 +56,9 @@ contract RTCETH is Administration {
         rtI = RTCoinInterface(address(0xb4ed44372bbc71dad64956373214c667b717e805));
     }
 
-    function () public payable {}
+    function () public payable {
+        require(buyRtc());
+    }
 
     function setRtInterfae(
         address _rtcAddress)
