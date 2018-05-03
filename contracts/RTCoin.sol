@@ -10,7 +10,7 @@ pragma solidity 0.4.23;
 import "./Modules/Administration.sol";
 import "./Math/SafeMath.sol";
 
-contract RTCoin is Administration {
+contract RTCoin {
 
     using SafeMath for uint256;
 
@@ -19,6 +19,16 @@ contract RTCoin is Administration {
     uint256 public  totalSupply;
     uint8   public  decimals;
     bool    public  transfersFrozen;
+
+    enum AclState { nil, pending, active, disabled }
+    struct AclStruct {
+        address holder;
+        address[] validRecipientsArray;
+        address[] validSourcesArray;
+        mapping (address => bool) validRecipient;
+        mapping (address => bool) validSources;
+        AclState state;
+    }
 
     mapping (address => uint256) public balances;
     mapping (address => mapping (address => uint256)) public allowed;
@@ -42,8 +52,8 @@ contract RTCoin is Administration {
         name = "RTCoin";
         symbol = "RTC";
         decimals = 18;
-        // 888Mil in wei
-        totalSupply = 888888888000000000000000000;
+        // 88il in wei
+        totalSupply = 88888888000000000000000000;
         balances[msg.sender] = totalSupply;
     }
 

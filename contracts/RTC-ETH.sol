@@ -51,8 +51,9 @@ contract RTCETH is Administration {
         return true;
     }
 
-    constructor() public payable {
-        rtI = RTCoinInterface(address(0));
+    constructor() public {
+        locked = true;
+        rtI = RTCoinInterface(address(0xb4ed44372bbc71dad64956373214c667b717e805));
     }
 
     function () public payable {}
@@ -61,6 +62,7 @@ contract RTCETH is Administration {
         address _rtcAddress)
         public
         onlyAdmin
+        isLocked
         returns (bool)
     {
         rtI = RTCoinInterface(_rtcAddress);
@@ -87,6 +89,7 @@ contract RTCETH is Administration {
         address _hotWalletAddress)
         public
         onlyAdmin
+        isLocked
         returns (bool)
     {
         hotWallet = _hotWalletAddress;
