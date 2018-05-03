@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/RTradeLtd/Mining-Stake/bindings"
 	"github.com/RTradeLtd/Mining-Stake/database"
 	"github.com/RTradeLtd/Mining-Stake/listener"
 	"github.com/RTradeLtd/Mining-Stake/manager"
@@ -25,13 +28,21 @@ const dev = true
 
 var emptyString string
 
+func deployRtc(manager *manager.Manager) {
+	address, tx, _, err := bindings.DeployRTCoin(manager.TransactOpts, manager.EthClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Contract Address %s\n", address.String())
+	fmt.Printf("Transaction Hash 0x%x\n", tx.Hash())
+}
 func main() {
 
 	if len(os.Args) > 3 || len(os.Args) < 3 {
-		log.Fatalf("improper invocation\n./Mining-Stake [stake|listen|oracle] [eth|rtc|noop]")
+		log.Fatalf("improper invocation\n./Mining-Stake [stake|listen|oracle|deploy] [eth|rtc|noop]")
 	}
 
-	if os.Args[1] != "stake" && os.Args[1] != "listen" && os.Args[1] != "oracle" {
+	if os.Args[1] != "stake" && os.Args[1] != "listen" && os.Args[1] != "oracle" && os.Args[1] != "deploy" {
 		log.Fatalf("%s is not valid, must be stake or listen\n", os.Args[1])
 	}
 
@@ -76,6 +87,21 @@ func main() {
 	//setup the bolt database
 	if err := manager.Bolt.Setup(dbPath, stakeBucket, emailBucket, oracleBucket); err != nil {
 		log.Fatal(err)
+	}
+
+	if os.Args[1] == "deploy" {
+		scanner := bufio.NewScanner(os.Stdin)
+		fmt.Println("enter contract to deploy")
+		scanner.Scan()
+		choice := scanner.Text()
+		switch choice {
+		case "rtc":
+			deployRtc(manager)
+			os.Exit(0)
+		default:
+			fmt.Println("unrecognized option")
+			os.Exit(1)
+		}
 	}
 
 	// setup our connection to the rpc backend
