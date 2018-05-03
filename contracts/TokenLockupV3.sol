@@ -29,8 +29,6 @@ contract TokenLockup is Administration {
     uint256 public rtcCAD;
     // hot wallet used to collect sign up fees,
     address public rtcHotWallet;
-    // will always be equivalent to $10 USD of ethereum +/- a few cents
-    uint256 public signUpFee;
     uint256 public stakerCount;
     bool    public locked;
 
